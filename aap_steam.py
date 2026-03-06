@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 # librerias gráficos
-import plotly as px
+import plotly
 
 
 
