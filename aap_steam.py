@@ -6,8 +6,7 @@
 ## IMPORTACIONES
 
 import streamlit as st
-import pandas as pd
-import numpy as np
+
 
 st.title("Hello Streamlit-er 👋")
 st.markdown(
@@ -22,5 +21,5 @@ st.markdown(
     """
 )
 
-if st.button("Send balloons!"):
+if st.button("Send pollas!"):
     st.balloons()
