@@ -10,8 +10,6 @@ import pandas as pd
 import numpy as np
 
 # librerias gráficos
-import plotly
-
 
 
 st.title("Hello Streamlit-er 👋")
