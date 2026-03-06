@@ -1,0 +1,22 @@
+# Entorno: mmc_python_lab (Polars + Gemini)
+
+# Core Data (NO Pandas)
+polars>=0.20.0
+pyarrow>=14.0.0
+
+# Kaggle API (descarga datasets programática)
+kaggle>=1.6.0
+
+# HTTP y APIs externas
+requests>=2.31.0
+
+# Variables de entorno
+python-dotenv>=1.0.0
+
+# Gemini API
+google-generativeai>=0.5.0
+
+# Jupyter
+jupyter>=1.0.0
+ipykernel>=6.25.0
+notebook>=7.0.0

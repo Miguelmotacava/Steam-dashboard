@@ -1,0 +1,11 @@
+# Ignorar variables de entorno y credenciales
+.env
+
+# Ignorar carpetas de entornos virtuales (si usas uno)
+.venv/
+venv/
+env/
+
+# Ignorar archivos temporales de Jupyter
+.ipynb_checkpoints/
+__pycache__/
