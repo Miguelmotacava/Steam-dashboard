@@ -328,7 +328,7 @@ def render_jugador(df_super=None):
                         y='Tipo',
                         color='genero',
                         orientation='h',
-                        barnorm='percent',
+                        barmode='stack',
                         title='⚖️ Comparativa: Posesión vs Dedicación Real',
                         labels={'Porcentaje': 'Dedicación (%)', 'genero': 'Género', 'Tipo': ''},
                     )
