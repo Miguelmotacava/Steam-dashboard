@@ -5,6 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 # ==========================================
@@ -55,7 +56,7 @@ def load_steam_data(limite):
                     'generos': ", ".join([g['description'] for g in data.get('genres', [])])
                 })
         except Exception:
-            pass # Si falla un juego, seguimos con el siguiente
+            pass 
         time.sleep(1.2)
         my_bar.progress((i + 1) / len(df_jugadores), text=f"⏳ Descargando datos de {limite} juegos populares...")
     
@@ -118,7 +119,6 @@ def load_player_profile(steamid):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def load_all_apps():
-    # Descarga la lista maestra de todos los juegos de Steam
     try:
         url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
         res = requests.get(url).json()
@@ -138,7 +138,6 @@ st.markdown("---")
 
 df_super = load_steam_data(num_juegos)
 
-# Reordenamos la creación de pestañas
 tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🔎 Buscador Global", "📰 Noticias", "👤 Perfil de Jugador"])
 
 # ==========================================
@@ -146,15 +145,12 @@ tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🔎 Buscador Global", "�
 # ==========================================
 with tab1:
     st.header(f"📈 Tendencias Actuales en el Top {num_juegos}")
+    st.info("Mostrando datos en tiempo real. Steam no permite filtrar por horas pasadas en este ranking.")
     
     if df_super.empty:
         st.error("Error al conectar con Steam. Inténtalo de nuevo en unos minutos.")
     else:
-        # Captura segura de filtros cruzados
-        filtro_treemap = st.session_state.get("treemap_chart", {}).get("selection", {}).get("points", [{}])[0].get("label") if "treemap_chart" in st.session_state else None
-        filtro_donut = st.session_state.get("donut_chart", {}).get("selection", {}).get("points", [{}])[0].get("label") if "donut_chart" in st.session_state else None
-        filtro_barras = st.session_state.get("bar_chart", {}).get("selection", {}).get("points", [{}])[0].get("y") if "bar_chart" in st.session_state else None
-
+        # Filtros manuales únicamente (eliminados los interactivos para evitar errores)
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
         with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
@@ -165,22 +161,10 @@ with tab1:
 
         df_filtrado = df_super.copy()
         
-        # Filtros manuales
         if juegos_sel: df_filtrado = df_filtrado[df_filtrado['nombre'].isin(juegos_sel)]
         if plat_sel != "Todas": df_filtrado = df_filtrado[df_filtrado[plat_sel.lower()] == True]
         if gen_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['generos'].str.contains(gen_sel, na=False)]
         
-        # Filtros cruzados
-        if filtro_treemap: df_filtrado = df_filtrado[df_filtrado['generos'].str.contains(filtro_treemap, na=False)]
-        if filtro_donut:
-            if filtro_donut == 'Windows': df_filtrado = df_filtrado[df_filtrado['windows'] == True]
-            elif filtro_donut == 'MacOS': df_filtrado = df_filtrado[df_filtrado['mac'] == True]
-            elif filtro_donut == 'Linux': df_filtrado = df_filtrado[df_filtrado['linux'] == True]
-        if filtro_barras: df_filtrado = df_filtrado[df_filtrado['nombre'] == filtro_barras]
-
-        if filtro_treemap or filtro_donut or filtro_barras:
-            st.success("🖱️ **Filtro cruzado activo.** (Haz doble clic en el gráfico para limpiar la selección)")
-
         st.markdown("---")
 
         if not df_filtrado.empty:
@@ -194,9 +178,9 @@ with tab1:
             with col_g1:
                 df_plot1 = df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales')
                 fig1 = px.bar(df_plot1, x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Top 10 Juegos', 
-                              labels={'jugadores_actuales': 'Jugadores (Unidades)', 'nombre': 'Videojuego'},
+                              labels={'jugadores_actuales': 'Jugadores Concurrentes (Unidades)', 'nombre': 'Videojuego'},
                               color_discrete_sequence=[RED_BASE])
-                st.plotly_chart(fig1, use_container_width=True, on_select="rerun", selection_mode="points", key="bar_chart")
+                st.plotly_chart(fig1, use_container_width=True)
             
             with col_g2:
                 df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
@@ -204,7 +188,7 @@ with tab1:
                 fig2 = px.treemap(df_g[df_g['jugadores_actuales']>0], path=['genero'], values='jugadores_actuales', title='🎭 Jugadores por Género', 
                                   labels={'jugadores_actuales': 'Jugadores (Unidades)', 'genero': 'Categoría'},
                                   color='jugadores_actuales', color_continuous_scale=RED_SCALE)
-                st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="points", key="treemap_chart")
+                st.plotly_chart(fig2, use_container_width=True)
 
             col_g3, col_g4 = st.columns(2)
             with col_g3:
@@ -212,7 +196,7 @@ with tab1:
                 fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistema Operativo', 
                               labels={'SO': 'Sistema Operativo', 'Compatibles': 'Juegos (Unidades)'},
                               color='SO', color_discrete_map=RED_DONUT)
-                st.plotly_chart(fig3, use_container_width=True, on_select="rerun", selection_mode="points", key="donut_chart")
+                st.plotly_chart(fig3, use_container_width=True)
             
             with col_g4:
                 df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
@@ -223,52 +207,86 @@ with tab1:
                     st.plotly_chart(fig4, use_container_width=True)
 
 # ==========================================
-# PESTAÑA 2: BUSCADOR GLOBAL
+# PESTAÑA 2: BUSCADOR GLOBAL (INTELIGENTE)
 # ==========================================
 with tab2:
     st.header("🔎 Buscador Global de Juegos")
-    st.write("¿Quieres consultar un juego que no está en el Top actual? Búscalo aquí.")
+    st.write("Busca cualquier título entre los más de 150.000 juegos del catálogo completo de Steam.")
     
     df_all_apps = load_all_apps()
     
     if not df_all_apps.empty:
-        juego_buscar = st.selectbox("Escribe el nombre del juego:", df_all_apps['name'].unique())
+        # Usamos text_input en lugar de selectbox para evitar colapsar la memoria
+        juego_buscar = st.text_input("✍️ Escribe el nombre exacto o parte de él (ej: Cyberpunk 2077, Portal 2):")
         
-        if st.button("Buscar Datos en Vivo"):
-            appid_buscar = df_all_apps[df_all_apps['name'] == juego_buscar]['appid'].iloc[0]
+        if st.button("Buscar en la Base de Datos") and juego_buscar:
+            # Buscar coincidencias exactas o parciales ignorando mayúsculas
+            coincidencias = df_all_apps[df_all_apps['name'].str.contains(juego_buscar, case=False, na=False)]
             
-            col_b1, col_b2 = st.columns(2)
-            
-            # 1. Buscar Jugadores en Vivo
-            url_players = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid_buscar}"
-            try:
-                res_players = requests.get(url_players).json()
-                jugadores_vivo = res_players.get('response', {}).get('player_count', 0)
-            except:
-                jugadores_vivo = 0
+            if not coincidencias.empty:
+                # Tomamos el resultado más exacto (el más corto suele ser el juego base y no un DLC)
+                coincidencias['longitud'] = coincidencias['name'].str.len()
+                mejor_resultado = coincidencias.sort_values('longitud').iloc[0]
                 
-            # 2. Buscar Datos de Tienda
-            url_store = f"https://store.steampowered.com/api/appdetails?appids={appid_buscar}&cc=es"
-            try:
-                res_store = requests.get(url_store).json()
-                if res_store and str(appid_buscar) in res_store and res_store[str(appid_buscar)].get('success'):
-                    data = res_store[str(appid_buscar)]['data']
-                    precio = data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0
-                    nota = data.get('metacritic', {}).get('score', "Sin nota")
+                appid_buscar = mejor_resultado['appid']
+                nombre_real = mejor_resultado['name']
+                
+                st.success(f"✅ Juego encontrado: **{nombre_real}** (AppID: {appid_buscar})")
+                
+                col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
+                
+                # 1. Buscar Jugadores en Vivo
+                url_players = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid_buscar}"
+                try:
+                    res_players = requests.get(url_players).json()
+                    jugadores_vivo = res_players.get('response', {}).get('player_count', 0)
+                except:
+                    jugadores_vivo = 0
                     
-                    with col_b1:
-                        st.image(data.get('header_image', ''), use_container_width=True)
-                    with col_b2:
-                        st.subheader(data.get('name'))
-                        st.metric("👥 Jugadores (Actuales)", f"{jugadores_vivo:,}".replace(',', '.'))
-                        st.write(f"💸 **Precio:** {precio} €" if precio > 0 else "💸 **Precio:** Gratis")
-                        st.write(f"⭐ **Metacritic:** {nota}")
-                        st.write(f"📝 **Descripción:** {data.get('short_description', '')[:200]}...")
-            except:
-                st.error("No se han podido obtener los datos de la tienda para este juego.")
+                # 2. Buscar Datos de Tienda
+                url_store = f"https://store.steampowered.com/api/appdetails?appids={appid_buscar}&cc=es"
+                try:
+                    res_store = requests.get(url_store).json()
+                    if res_store and str(appid_buscar) in res_store and res_store[str(appid_buscar)].get('success'):
+                        data = res_store[str(appid_buscar)]['data']
+                        precio = data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0
+                        nota = data.get('metacritic', {}).get('score', 0)
+                        
+                        with col_b1:
+                            st.image(data.get('header_image', ''), use_container_width=True)
+                            st.write(f"📝 **Descripción:** {data.get('short_description', '')[:150]}...")
+                        
+                        with col_b2:
+                            st.metric("👥 Jugadores Actuales (Unidades)", f"{jugadores_vivo:,}".replace(',', '.'))
+                            st.metric("💸 Precio Final (Euros)", f"{precio} €" if precio > 0 else "Gratis")
+                            
+                        with col_b3:
+                            # Gráfico Plotly Gauge para la nota
+                            if nota > 0:
+                                fig_gauge = go.Figure(go.Indicator(
+                                    mode = "gauge+number",
+                                    value = nota,
+                                    domain = {'x': [0, 1], 'y': [0, 1]},
+                                    title = {'text': "Nota Metacritic", 'font': {'size': 16}},
+                                    gauge = {
+                                        'axis': {'range': [None, 100]},
+                                        'bar': {'color': RED_BASE},
+                                        'steps' : [
+                                            {'range': [0, 50], 'color': "lightgray"},
+                                            {'range': [50, 75], 'color': "gray"}],
+                                    }
+                                ))
+                                fig_gauge.update_layout(height=250, margin=dict(l=10, r=10, t=30, b=10))
+                                st.plotly_chart(fig_gauge, use_container_width=True)
+                            else:
+                                st.info("⭐ Este juego no tiene nota en Metacritic.")
+                except Exception as e:
+                    st.error("No se han podido obtener los datos de la tienda para este juego.")
+            else:
+                st.warning(f"No se ha encontrado ningún juego llamado '{juego_buscar}'.")
 
 # ==========================================
-# PESTAÑA 3: NOTICIAS (MATPLOTLIB)
+# PESTAÑA 3: NOTICIAS (MATPLOTLIB ALINEADO)
 # ==========================================
 with tab3:
     st.header("📰 Radar de Noticias Oficiales")
@@ -290,15 +308,16 @@ with tab3:
 
             st.markdown("---")
             if not df_n_filtro.empty:
-                st.metric(label=f"Impactos informativos en {filtro_tiempo.lower()}", value=len(df_n_filtro))
+                st.metric(label=f"Impactos Informativos (Unidades)", value=len(df_n_filtro))
                 
                 col_m1, col_m2 = st.columns(2)
                 
+                # GRÁFICA 1: BARRAS
                 with col_m1:
                     st.markdown("**Publicaciones por Categoría**")
                     conteo_cats = df_n_filtro['feedlabel'].value_counts().sort_values(ascending=True)
                     
-                    fig_m1, ax_m1 = plt.subplots(figsize=(6, 4))
+                    fig_m1, ax_m1 = plt.subplots(figsize=(5, 4))
                     fig_m1.patch.set_alpha(0.0) 
                     ax_m1.patch.set_alpha(0.0)  
                     
@@ -307,38 +326,41 @@ with tab3:
                     ax_m1.spines['right'].set_visible(False)
                     ax_m1.tick_params(colors='gray')
                     
-                    ax_m1.set_xlabel('Número de Publicaciones (Unidades)', fontsize=10, color='gray')
-                    ax_m1.set_ylabel('Categoría', fontsize=10, color='gray')
-                    
+                    ax_m1.set_xlabel('Publicaciones (Unidades)', fontsize=10, color='gray')
+                    ax_m1.set_ylabel('Categoría de Noticia', fontsize=10, color='gray')
                     for spine in ax_m1.spines.values(): spine.set_edgecolor('gray')
+                    
+                    fig_m1.tight_layout() # Fuerza el ajuste perfecto al contenedor
                     st.pyplot(fig_m1, transparent=True)
                 
+                # GRÁFICA 2: LÍNEAS
                 with col_m2:
-                    st.markdown("**Evolución de Noticias en el Tiempo**")
+                    st.markdown("**Evolución Temporal de Noticias**")
                     df_temporal = df_n_filtro.copy()
                     df_temporal['fecha_corta'] = df_temporal['fecha_dt'].dt.date
                     conteo_temporal = df_temporal.groupby('fecha_corta').size()
                     
-                    fig_m2, ax_m2 = plt.subplots(figsize=(6, 4))
+                    fig_m2, ax_m2 = plt.subplots(figsize=(5, 4))
                     fig_m2.patch.set_alpha(0.0)
                     ax_m2.patch.set_alpha(0.0)
                     
                     ax_m2.plot(conteo_temporal.index, conteo_temporal.values, color=RED_BASE, marker='o', linewidth=2)
                     ax_m2.spines['top'].set_visible(False)
                     ax_m2.spines['right'].set_visible(False)
-                    ax_m2.tick_params(colors='gray', rotation=45)
+                    ax_m2.tick_params(colors='gray', rotation=30)
                     
                     ax_m2.set_xlabel('Fecha (Días)', fontsize=10, color='gray')
-                    ax_m2.set_ylabel('Número de Publicaciones (Unidades)', fontsize=10, color='gray')
-                    
+                    ax_m2.set_ylabel('Publicaciones (Unidades)', fontsize=10, color='gray')
                     for spine in ax_m2.spines.values(): spine.set_edgecolor('gray')
+                    
+                    fig_m2.tight_layout() # Se ajusta exactamente igual que el fig_m1
                     st.pyplot(fig_m2, transparent=True)
                 
                 st.subheader("Últimos Titulares")
                 for _, row in df_n_filtro.head(5).iterrows():
                     st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
             else:
-                st.info(f"📭 No hay noticias en el periodo: {filtro_tiempo}.")
+                st.info(f"📭 No hay noticias en el periodo seleccionado.")
 
 # ==========================================
 # PESTAÑA 4: PERFIL DE JUGADOR
@@ -360,8 +382,8 @@ with tab4:
             with col_p2:
                 st.subheader(perfil.get('personaname', 'Desconocido'))
                 horas_totales = df_juegos['playtime_forever'].sum() / 60
-                st.write(f"🎮 **Juegos en propiedad:** {len(df_juegos)}")
-                st.write(f"⏱️ **Horas totales jugadas:** {int(horas_totales):,}".replace(',', '.'))
+                st.write(f"🎮 **Juegos en Propiedad:** {len(df_juegos)}")
+                st.write(f"⏱️ **Tiempo Jugado Total:** {int(horas_totales):,} Horas".replace(',', '.'))
 
             if not df_juegos.empty and not df_generos_jugador.empty:
                 col_j1, col_j2 = st.columns(2)
@@ -370,7 +392,7 @@ with tab4:
                     df_juegos['horas'] = df_juegos['playtime_forever'] / 60
                     top_juegos_jug = df_juegos.nlargest(10, 'horas').sort_values('horas')
                     fig_p1 = px.bar(top_juegos_jug, x='horas', y='name', orientation='h', 
-                                    title='🏆 Juegos con Más Horas', 
+                                    title='🏆 Juegos con Mayor Tiempo de Uso', 
                                     labels={'horas': 'Tiempo Jugado (Horas)', 'name': 'Videojuego'}, 
                                     color_discrete_sequence=[RED_BASE], template=PLOT_TEMPLATE)
                     st.plotly_chart(fig_p1, use_container_width=True)
@@ -379,7 +401,7 @@ with tab4:
                     radar_data = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
                     radar_data['horas'] = radar_data['minutos'] / 60
                     fig_p2 = px.line_polar(radar_data, r='horas', theta='genero', line_close=True,
-                                           title='🕸️ ADN de Jugador (Radar de Géneros)',
+                                           title='🕸️ Perfil por Categorías',
                                            labels={'horas': 'Tiempo Jugado (Horas)', 'genero': 'Categoría'},
                                            color_discrete_sequence=[RED_BASE], template=PLOT_TEMPLATE)
                     fig_p2.update_traces(fill='toself', fillcolor='rgba(255, 75, 75, 0.4)')
