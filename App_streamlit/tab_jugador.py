@@ -103,8 +103,10 @@ def render_jugador(df_super=None):
     else:
         if 'jugador_perfil' in st.session_state:
             perfil = st.session_state['jugador_perfil']
-            df_juegos = st.session_state.get('jugador_df_juegos') or pd.DataFrame()
-            df_generos_jugador = st.session_state.get('jugador_df_generos') or pd.DataFrame()
+            _df = st.session_state.get('jugador_df_juegos')
+            df_juegos = pd.DataFrame() if _df is None else _df
+            _dg = st.session_state.get('jugador_df_generos')
+            df_generos_jugador = pd.DataFrame() if _dg is None else _dg
             steamid_real = st.session_state.get('jugador_steamid', '')
 
     if perfil:
