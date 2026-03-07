@@ -272,9 +272,9 @@ def render_tendencias(df_super):
                         )
                         fig_anim1.update_xaxes(title_standoff=30)
                         if fig_anim1.layout.updatemenus:
-                            fig_anim1.layout.updatemenus[0].y = -0.18
+                            fig_anim1.layout.updatemenus[0].y = -0.25
                         if fig_anim1.layout.sliders:
-                            fig_anim1.layout.sliders[0].y = -0.18
+                            fig_anim1.layout.sliders[0].y = -0.25
                         st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
@@ -333,9 +333,9 @@ def render_tendencias(df_super):
                         )
                         fig_anim2.update_xaxes(title_standoff=30)
                         if fig_anim2.layout.updatemenus:
-                            fig_anim2.layout.updatemenus[0].y = -0.18
+                            fig_anim2.layout.updatemenus[0].y = -0.25
                         if fig_anim2.layout.sliders:
-                            fig_anim2.layout.sliders[0].y = -0.18
+                            fig_anim2.layout.sliders[0].y = -0.25
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
@@ -453,6 +453,13 @@ def render_tendencias(df_super):
                         symbol='Categoria_DLC',
                         title='📅 Distribución De Lanzamientos (DLCs)',
                         size_max=12,
+                        color_discrete_map={
+                            '🎵 Banda Sonora': RED_BASE,
+                            '🎟️ Pase de Temporada': '#FF6666',
+                            '🗺️ Expansión Mayor': '#FF8080',
+                            '👗 Cosmético / Menor': '#FF9999',
+                            '🧩 DLC Estándar': '#FFB3B3',
+                        },
                         labels={
                             'fecha_dt': 'Fecha De Lanzamiento (Tiempo)',
                             'precio_eur': 'Precio Actual (Euros)',
