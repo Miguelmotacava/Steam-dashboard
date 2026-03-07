@@ -67,7 +67,7 @@ def load_steam_data(limite):
     return pd.merge(pd.DataFrame(datos_tienda), df_jugadores, on='appid', how='inner')
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def obtener_precio_historico(appid, nombre):
+def fetch_precio_historico(appid, nombre):
     """Consulta CheapShark para obtener el precio más bajo histórico en Steam."""
     try:
         url_search = f"https://www.cheapshark.com/api/1.0/games?steamAppID={appid}"
@@ -95,7 +95,9 @@ def obtener_precio_historico(appid, nombre):
             'precio_retail': float(steam_deal['retailPrice']) if steam_deal else None,
             'precio_actual_cs': float(steam_deal['price']) if steam_deal else None,
         }
-    except: return None
+    except Exception as e:
+        # Raise instead of return None so Streamlit doesn't cache the error
+        raise RuntimeError(f"Error en CheapShark API: {e}")
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):
@@ -108,16 +110,19 @@ def load_news_data(appid):
     except: return pd.DataFrame()
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_player_profile(steamid):
+def fetch_player_profile(steamid):
+    if not STEAM_API_KEY:
+        raise ValueError("STEAM_API_KEY no detectado (revisa el archivo .env o secrets)")
     try:
         url_sum = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={STEAM_API_KEY}&steamids={steamid}"
         perfil = requests.get(url_sum).json().get('response', {}).get('players', [])
         
         url_games = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={STEAM_API_KEY}&steamid={steamid}&include_appinfo=1&format=json"
         juegos = requests.get(url_games).json().get('response', {}).get('games', [])
-    except: return None, None, None
+    except Exception as e:
+        raise RuntimeError(f"Error conectando a Steam API: {e}")
 
-    if not perfil: return None, None, None
+    if not perfil: raise ValueError("El perfil devuelto está vacío")
     df_juegos = pd.DataFrame(juegos)
     
     if 'playtime_forever' not in df_juegos.columns or df_juegos.empty: 
