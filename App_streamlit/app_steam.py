@@ -14,6 +14,12 @@ st.set_page_config(page_title="Steam Analytics Dashboard", layout="wide")
 load_dotenv()
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 
+# --- VARIABLES DE DISEÑO (ROJO STREAMLIT) ---
+RED_BASE = '#FF4B4B' 
+RED_SCALE = 'Reds'
+RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
+PLOT_TEMPLATE = "plotly_white"
+
 # 2. Función de Extracción de Juegos (Pestaña 1)
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_steam_data(limite):
@@ -51,14 +57,11 @@ def load_steam_data(limite):
 # 3. Función de Extracción de Noticias (Pestaña 2)
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):
-    # Pedimos hasta 100 noticias del juego seleccionado
     url_news = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count=100&format=json"
     res_news = requests.get(url_news).json()
     noticias = res_news.get('appnews', {}).get('newsitems', [])
     df_noticias = pd.DataFrame(noticias)
-    
     if not df_noticias.empty:
-        # Convertimos la fecha Unix a formato Fecha/Hora normal de Python
         df_noticias['fecha_dt'] = pd.to_datetime(df_noticias['date'], unit='s')
     return df_noticias
 
@@ -80,13 +83,23 @@ tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Jugador"])
 with tab1:
     st.header(f"📈 Tendencias Actuales en el Top {num_juegos}")
     
-    GREEN_BASE, GREEN_SCALE = '#2e7d32', 'Greens'
-    GREEN_DONUT = {'Windows': '#1b5e20', 'MacOS': '#66bb6a', 'Linux': '#a5d6a7'}
-    
-    # Filtros Cruzados (Session State)
-    filtro_treemap = st.session_state.get("treemap_chart", {}).get("selection", {}).get("points", [{}])[0].get("label") if "treemap_chart" in st.session_state and st.session_state["treemap_chart"].get("selection", {}).get("points") else None
-    filtro_donut = st.session_state.get("donut_chart", {}).get("selection", {}).get("points", [{}])[0].get("label") if "donut_chart" in st.session_state and st.session_state["donut_chart"].get("selection", {}).get("points") else None
+    # --- CAPTURAR CLICS (FILTROS CRUZADOS) ---
+    filtro_treemap = None
+    if "treemap_chart" in st.session_state:
+        puntos = st.session_state["treemap_chart"].get("selection", {}).get("points", [])
+        if puntos: filtro_treemap = puntos[0].get("label")
 
+    filtro_donut = None
+    if "donut_chart" in st.session_state:
+        puntos = st.session_state["donut_chart"].get("selection", {}).get("points", [])
+        if puntos: filtro_donut = puntos[0].get("label")
+
+    filtro_barras = None
+    if "bar_chart" in st.session_state:
+        puntos = st.session_state["bar_chart"].get("selection", {}).get("points", [])
+        if puntos: filtro_barras = puntos[0].get("y")
+
+    # --- FILTROS MANUALES SUPERIORES ---
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
     with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
@@ -95,12 +108,18 @@ with tab1:
         for gen in df_super['generos'].dropna(): todos_gen.update(gen.split(', '))
         gen_sel = st.selectbox("🎭 Filtrar por Género", ["Todos"] + sorted(list(todos_gen)))
 
+    # --- APLICAR TODOS LOS FILTROS ---
     df_filtrado = df_super.copy()
+    
     if juegos_sel: df_filtrado = df_filtrado[df_filtrado['nombre'].isin(juegos_sel)]
     if plat_sel != "Todas": df_filtrado = df_filtrado[df_filtrado[plat_sel.lower()] == True]
     if gen_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['generos'].str.contains(gen_sel, na=False)]
     if filtro_treemap: df_filtrado = df_filtrado[df_filtrado['generos'].str.contains(filtro_treemap, na=False)]
     if filtro_donut: df_filtrado = df_filtrado[df_filtrado[filtro_donut.lower()] == True]
+    if filtro_barras: df_filtrado = df_filtrado[df_filtrado['nombre'] == filtro_barras]
+
+    if filtro_treemap or filtro_donut or filtro_barras:
+        st.success("🖱️ **Filtro cruzado activo.** (Haz doble clic en el gráfico para limpiar la selección)")
 
     st.markdown("---")
 
@@ -113,19 +132,22 @@ with tab1:
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            fig1 = px.bar(df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'), x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Top 10 Juegos', color_discrete_sequence=[GREEN_BASE])
-            st.plotly_chart(fig1, use_container_width=True)
+            df_plot1 = df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales')
+            fig1 = px.bar(df_plot1, x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Top 10 Juegos (¡Pincha una barra!)', color_discrete_sequence=[RED_BASE])
+            st.plotly_chart(fig1, use_container_width=True, on_select="rerun", selection_mode="points", key="bar_chart")
+        
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
             df_g = df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index()
-            fig2 = px.treemap(df_g[df_g['jugadores_actuales']>0], path=['genero'], values='jugadores_actuales', title='🎭 Jugadores por Género', color='jugadores_actuales', color_continuous_scale=GREEN_SCALE)
-            st.plotly_chart(fig2, use_container_width=True, on_select="rerun", key="treemap_chart")
+            fig2 = px.treemap(df_g[df_g['jugadores_actuales']>0], path=['genero'], values='jugadores_actuales', title='🎭 Jugadores por Género (¡Pincha una caja!)', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
+            st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="points", key="treemap_chart")
 
         col_g3, col_g4 = st.columns(2)
         with col_g3:
             df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
-            fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad SO', color='SO', color_discrete_map=GREEN_DONUT)
-            st.plotly_chart(fig3, use_container_width=True, on_select="rerun", key="donut_chart")
+            fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad SO (¡Pincha un sector!)', color='SO', color_discrete_map=RED_DONUT)
+            st.plotly_chart(fig3, use_container_width=True, on_select="rerun", selection_mode="points", key="donut_chart")
+        
         with col_g4:
             df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
             if not df_scat.empty:
@@ -137,83 +159,87 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("📰 Radar de Noticias Oficiales")
-    
     if not df_super.empty:
         col_n1, col_n2 = st.columns([2, 1])
-        
         with col_n1:
-            # Selector de juego (usamos el top cargado previamente)
             juego_elegido = st.selectbox("🕹️ Selecciona un juego para analizar sus noticias:", df_super['nombre'].unique())
             appid_elegido = df_super[df_super['nombre'] == juego_elegido]['appid'].iloc[0]
-        
         with col_n2:
-            # Selector temporal (widget de Streamlit)
             filtro_tiempo = st.radio("⏱️ Rango temporal:", ["Último Día", "Última Semana", "Último Mes", "Todo (100 últ.)"], index=2)
 
-        # Cargar datos
         df_news = load_news_data(appid_elegido)
-        
         if not df_news.empty:
-            # Filtrar por fecha
             hoy = pd.Timestamp.now()
-            if filtro_tiempo == "Último Día":
-                df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=1))]
-            elif filtro_tiempo == "Última Semana":
-                df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=7))]
-            elif filtro_tiempo == "Último Mes":
-                df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=30))]
-            else:
-                df_n_filtro = df_news.copy()
+            if filtro_tiempo == "Último Día": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=1))]
+            elif filtro_tiempo == "Última Semana": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=7))]
+            elif filtro_tiempo == "Último Mes": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=30))]
+            else: df_n_filtro = df_news.copy()
 
             st.markdown("---")
-
             if not df_n_filtro.empty:
-                # KPI de noticias
                 st.metric(label=f"Impactos informativos en {filtro_tiempo.lower()}", value=len(df_n_filtro))
                 
-                # --- GRÁFICA DE BOKEH ---
-                # Agrupamos las noticias por su categoría (feedlabel) para ver qué tipo de contenido publican
-                conteo_cats = df_n_filtro['feedlabel'].value_counts().reset_index()
-                conteo_cats.columns = ['Categoria', 'Cantidad']
+                # Fila para las dos gráficas de Bokeh
+                col_b1, col_b2 = st.columns(2)
                 
-                # Convertimos datos para Bokeh
-                source = ColumnDataSource(conteo_cats)
+                with col_b1:
+                    # GRÁFICA 1: Categorías (Barras horizontales)
+                    conteo_cats = df_n_filtro['feedlabel'].value_counts().reset_index()
+                    conteo_cats.columns = ['Categoria', 'Cantidad']
+                    source_cats = ColumnDataSource(conteo_cats)
+                    
+                    p_cats = figure(y_range=conteo_cats['Categoria'].tolist(), height=350, title=f"Publicaciones por Categoría", toolbar_location=None, tools="")
+                    p_cats.hbar(y='Categoria', right='Cantidad', height=0.7, source=source_cats, color=RED_BASE, line_color="white")
+                    p_cats.ygrid.grid_line_color = None
+                    p_cats.xaxis.axis_label = "Número de publicaciones"
+                    p_cats.outline_line_color = None
+                    
+                    hover_cats = HoverTool()
+                    hover_cats.tooltips = [("Categoría", "@Categoria"), ("Publicaciones", "@Cantidad")]
+                    p_cats.add_tools(hover_cats)
+                    
+                    st.bokeh_chart(p_cats, use_container_width=True)
                 
-                # Creamos la figura Bokeh (Requisito del laboratorio)
-                p = figure(
-                    y_range=conteo_cats['Categoria'].tolist(), 
-                    height=350, 
-                    title=f"Distribución de Publicaciones por Categoría ({juego_elegido})",
-                    toolbar_location=None, 
-                    tools=""
-                )
+                with col_b2:
+                    # GRÁFICA 2: Evolución temporal (Líneas y Puntos)
+                    # Agrupamos por fecha ignorando la hora
+                    df_temporal = df_n_filtro.copy()
+                    df_temporal['fecha_corta'] = df_temporal['fecha_dt'].dt.date
+                    conteo_temporal = df_temporal.groupby('fecha_corta').size().reset_index(name='Cantidad')
+                    # Aseguramos que es datetime para Bokeh
+                    conteo_temporal['fecha_corta'] = pd.to_datetime(conteo_temporal['fecha_corta'])
+                    
+                    source_time = ColumnDataSource(conteo_temporal)
+                    
+                    p_time = figure(x_axis_type="datetime", height=350, title="Evolución de noticias en el tiempo", toolbar_location=None, tools="")
+                    # Dibujamos línea y puntos en los vértices
+                    p_time.line(x='fecha_corta', y='Cantidad', source=source_time, line_width=3, color=RED_BASE)
+                    p_time.circle(x='fecha_corta', y='Cantidad', source=source_time, size=8, color=RED_BASE)
+                    
+                    p_time.xgrid.grid_line_color = None
+                    p_time.yaxis.axis_label = "Número de publicaciones"
+                    p_time.outline_line_color = None
+                    
+                    # Tooltip especial para formato de fecha
+                    hover_time = HoverTool()
+                    hover_time.tooltips = [("Fecha", "@fecha_corta{%F}"), ("Noticias", "@Cantidad")]
+                    hover_time.formatters = {"@fecha_corta": "datetime"}
+                    p_time.add_tools(hover_time)
+                    
+                    st.bokeh_chart(p_time, use_container_width=True)
                 
-                # Hacemos las barras horizontales usando nuestro verde principal
-                p.hbar(y='Categoria', right='Cantidad', height=0.7, source=source, color="#2e7d32", line_color="white")
-                
-                # Limpiamos el diseño
-                p.ygrid.grid_line_color = None
-                p.xaxis.axis_label = "Número de publicaciones"
-                p.outline_line_color = None
-                
-                # Añadimos un HoverTool (Interactividad)
-                hover = HoverTool()
-                hover.tooltips = [("Categoría", "@Categoria"), ("Publicaciones", "@Cantidad")]
-                p.add_tools(hover)
-                
-                # Renderizamos en Streamlit
-                st.bokeh_chart(p, use_container_width=True)
-                
-                # Añadimos el listado real de noticias por si el usuario quiere leerlas
+                # Lista de titulares
                 st.subheader("Últimos Titulares")
                 for _, row in df_n_filtro.head(5).iterrows():
                     st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
-                    
             else:
-                st.info(f"📭 Los desarrolladores de '{juego_elegido}' no han publicado noticias en el periodo: {filtro_tiempo}.")
+                st.info(f"📭 No hay noticias de '{juego_elegido}' en el periodo: {filtro_tiempo}.")
         else:
             st.error("❌ No hay historial de noticias disponible para este juego.")
 
+# ==========================================
+# PESTAÑA 3: JUGADOR
+# ==========================================
 with tab3:
     st.header("Estadísticas de Perfil de Jugador")
     st.info("Próximamente...")
