@@ -53,14 +53,20 @@ def obtener_steam_id_real(input_usuario):
     return None
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_steam_data(limite):
+def fetch_steam_data(limite):
     steam_api_key = get_api_key()
-    if not steam_api_key: return pd.DataFrame()
+    if not steam_api_key: 
+        st.error("STEAM_API_KEY no detectado (API global)")
+        return pd.DataFrame()
     
     url_top = f"https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/?key={steam_api_key}"
     try:
-        top_juegos = requests.get(url_top).json().get('response', {}).get('ranks', [])[:limite]
-    except: return pd.DataFrame()
+        res = requests.get(url_top)
+        res.raise_for_status()
+        top_juegos = res.json().get('response', {}).get('ranks', [])[:limite]
+    except Exception as e:
+        st.error(f"Error HTTP Steam API Global: {e}")
+        return pd.DataFrame()
     
     df_jugadores = pd.DataFrame(top_juegos)
     if df_jugadores.empty: return pd.DataFrame()
