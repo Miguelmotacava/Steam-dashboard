@@ -305,7 +305,7 @@ def render_tendencias(df_super):
                                 dict(
                                     type='buttons',
                                     showactive=False,
-                                    y=-0.35,
+                                    y=-0.38,
                                     x=0.5,
                                     xanchor='center',
                                     buttons=[
@@ -321,7 +321,7 @@ def render_tendencias(df_super):
                             sliders=[
                                 dict(
                                     active=0,
-                                    y=-0.25,
+                                    y=-0.22,
                                     len=0.9,
                                     xanchor='center',
                                     pad=dict(b=10, t=0),
@@ -420,7 +420,7 @@ def render_tendencias(df_super):
                                     dict(
                                         type='buttons',
                                         showactive=False,
-                                        y=-0.35,
+                                        y=-0.38,
                                         x=0.5,
                                         xanchor='center',
                                         buttons=[
@@ -436,7 +436,7 @@ def render_tendencias(df_super):
                                 sliders=[
                                     dict(
                                         active=0,
-                                        y=-0.25,
+                                        y=-0.22,
                                         len=0.9,
                                         xanchor='center',
                                         pad=dict(b=10, t=0),
