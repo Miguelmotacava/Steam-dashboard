@@ -6,7 +6,13 @@ import os
 import re
 from dotenv import load_dotenv
 
-load_dotenv()
+# Cargar .env desde el directorio padre si se ejecuta dentro de App_streamlit
+env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    load_dotenv() # Fallback al directorio actual
+
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 
 def obtener_steam_id_real(input_usuario):
