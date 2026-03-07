@@ -83,7 +83,8 @@ def fetch_global_steam_data(limite):
                     'es_gratis': data.get('is_free', False),
                     'precio_inicial': data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0,
                     'precio_eur': data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0,
-                    'fecha_salida': data.get('release_date', {}).get('date', ''), # NUEVO: Fecha real
+                    'fecha_salida': data.get('release_date', {}).get('date', ''),
+                    'header_image': data.get('header_image', ''),
                     'dlc_count': len(data.get('dlc', [])),
                     'metacritic_nota': data.get('metacritic', {}).get('score', None),
                     'windows': data.get('platforms', {}).get('windows', False),
@@ -129,6 +130,22 @@ def fetch_history_price(appid, nombre):
     except Exception as e:
         # Raise instead of return None so Streamlit doesn't cache the error
         raise RuntimeError(f"Error en CheapShark API: {e}")
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_app_details(appid):
+    """Obtiene header_image y fecha_salida de la Steam Store API."""
+    try:
+        url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
+        res = requests.get(url, timeout=5).json()
+        if res and str(appid) in res and res[str(appid)].get('success'):
+            data = res[str(appid)]['data']
+            return {
+                'header_image': data.get('header_image', ''),
+                'fecha_salida': data.get('release_date', {}).get('date', ''),
+            }
+    except Exception:
+        pass
+    return {'header_image': '', 'fecha_salida': ''}
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):

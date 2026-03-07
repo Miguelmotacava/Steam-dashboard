@@ -30,6 +30,7 @@ def aplicar_tema_oscuro_transparente(fig, es_radar=False):
             polar=dict(
                 bgcolor='rgba(0,0,0,0)',
                 radialaxis=dict(
+                    range=[0, 100],
                     gridcolor='rgba(255,255,255,0.1)',
                     tickfont=dict(color='white'),
                     linecolor='rgba(255,255,255,0.1)',
@@ -138,15 +139,22 @@ def render_jugador():
                             .sum()
                             .reset_index()
                         )
-                        radar_data['horas'] = radar_data['minutos'] / 60
+                        total_minutos_top15 = radar_data['minutos'].sum()
+                        radar_data['porcentaje'] = (
+                            (radar_data['minutos'] / total_minutos_top15 * 100)
+                            if total_minutos_top15 > 0 else 0
+                        )
                         fig_radar = px.line_polar(
                             radar_data,
-                            r='horas',
+                            r='porcentaje',
                             theta='genero',
                             line_close=True,
                             title='🕸️ ADN por Géneros',
                             color_discrete_sequence=[RED_BASE],
-                            labels={'horas': 'Horas (Horas)', 'genero': 'Género'},
+                            labels={
+                                'porcentaje': 'Porcentaje De Horas (%)',
+                                'genero': 'Género',
+                            },
                         )
                         fig_radar.update_traces(
                             fill='toself',
@@ -215,12 +223,21 @@ def render_jugador():
                         df_actividad['fecha_ultima'] = pd.to_datetime(
                             df_actividad['rtime_last_played'], unit='s'
                         )
-                        df_actividad['año'] = df_actividad['fecha_ultima'].dt.year
+                        df_actividad['año'] = df_actividad['fecha_ultima'].dt.year.astype(int)
+                        juegos_por_año = (
+                            df_actividad.groupby('año')['name']
+                            .apply(lambda x: '<br>'.join(x.astype(str)))
+                            .reset_index()
+                        )
                         conteo_por_año = (
                             df_actividad.groupby('año').size().reset_index(name='juegos')
                         )
+                        df_actividad_plot = conteo_por_año.merge(
+                            juegos_por_año.rename(columns={'name': 'juegos_lista'}),
+                            on='año',
+                        )
                         fig_actividad = px.bar(
-                            conteo_por_año,
+                            df_actividad_plot,
                             x='año',
                             y='juegos',
                             title='📅 Historial de Actividad (Juegos Activos por Año)',
@@ -229,6 +246,14 @@ def render_jugador():
                                 'año': 'Año De Última Partida (Años)',
                                 'juegos': 'Número De Juegos (Unidades)',
                             },
+                        )
+                        fig_actividad.update_traces(
+                            customdata=df_actividad_plot['juegos_lista'],
+                            hovertemplate='<b>Año:</b> %{x}<br><b>Juegos:</b> %{y}<br><b>Títulos:</b><br>%{customdata}<extra></extra>',
+                        )
+                        fig_actividad.update_layout(
+                            xaxis=dict(dtick=1, tickformat='d'),
+                            yaxis=dict(dtick=1, tickformat='d'),
                         )
                         st.plotly_chart(
                             aplicar_tema_oscuro_transparente(fig_actividad),

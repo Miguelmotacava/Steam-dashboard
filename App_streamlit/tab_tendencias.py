@@ -66,8 +66,8 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
     fig.update_layout(
         title=f'📉 Evolución Real del Precio',
         yaxis_range=[0, max_p + (max_p * 0.3) + 2],
-        xaxis_title='Fecha', 
-        yaxis_title='Euros (€)',
+        xaxis_title='Fecha',
+        yaxis_title='Precio (Euros)',
         showlegend=False
     )
     return fig
@@ -98,7 +98,12 @@ def render_tendencias(df_super):
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            fig1 = px.bar(df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'), x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE])
+            fig1 = px.bar(
+                df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'),
+                x='jugadores_actuales', y='nombre', orientation='h',
+                title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE],
+                labels={'jugadores_actuales': 'Jugadores Actuales (Unidades)', 'nombre': 'Videojuego'},
+            )
             st.plotly_chart(fig1, use_container_width=True)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
@@ -113,7 +118,12 @@ def render_tendencias(df_super):
         with col_g4:
             df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
             if not df_scat.empty:
-                fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='💎 Precio vs Calidad (Metacritic)', color='nombre')
+                fig4 = px.scatter(
+                    df_scat, x='precio_eur', y='metacritic_nota',
+                    size='jugadores_actuales', hover_name='nombre',
+                    title='💎 Precio vs Calidad (Metacritic)', color='nombre',
+                    labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Metacritic'},
+                )
                 st.plotly_chart(fig4, use_container_width=True)
 
         st.markdown("### 🛒 Análisis de Modelo de Negocio")
@@ -146,3 +156,23 @@ def render_tendencias(df_super):
         except Exception as e:
             import traceback
             st.error(f"Error procesando análisis de negocio: {traceback.format_exc()}")
+
+        st.markdown("---")
+        st.markdown("### 📋 Tabla Resumen de Juegos")
+        df_tabla = df_filtrado.copy()
+        df_tabla['Descuento (%)'] = df_tabla.apply(
+            lambda r: round((r['precio_inicial'] - r['precio_eur']) / r['precio_inicial'] * 100, 0)
+            if pd.notna(r['precio_inicial']) and r['precio_inicial'] > 0 else 0,
+            axis=1
+        )
+        columnas_tabla = {
+            'nombre': 'Nombre',
+            'jugadores_actuales': 'Jugadores Actuales',
+            'precio_eur': 'Precio (Euros)',
+            'Descuento (%)': 'Descuento (%)',
+            'dlc_count': 'DLCs',
+            'metacritic_nota': 'Nota Metacritic',
+            'generos': 'Géneros',
+        }
+        df_mostrar = df_tabla[list(columnas_tabla.keys())].rename(columns=columnas_tabla)
+        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)

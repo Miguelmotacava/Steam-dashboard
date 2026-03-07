@@ -10,7 +10,7 @@ st.set_page_config(page_title="Steam Analytics Dashboard", layout="wide")
 st.markdown("""<style>.stProgress > div > div > div > div { background-color: #FF4B4B !important; }</style>""", unsafe_allow_html=True)
 
 st.title("🎮 Dashboard de Análisis de Steam")
-num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", 10, 100, 50, 10)
+num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
 st.markdown("---")
 
 df_super = pd.DataFrame()
