@@ -510,5 +510,35 @@ def render_jugador(df_super=None):
                             coloraxis_showscale=True,
                         )
                         st.plotly_chart(aplicar_tema_oscuro_transparente(fig_bubble), use_container_width=True)
+
+            # --- TABLA: Todos los juegos del jugador ---
+            st.markdown("---")
+            st.markdown("### 📋 Biblioteca Completa")
+            df_tabla_jugador = df_juegos.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
+            df_tabla_jugador['Horas'] = (df_tabla_jugador['playtime_forever'] / 60).round(1)
+            logros_col = []
+            steamid_tabla = st.session_state.get('jugador_steamid', '')
+            top_n = min(25, len(df_tabla_jugador))
+            for idx, (_, row) in enumerate(df_tabla_jugador.iterrows()):
+                if idx < top_n and steamid_tabla:
+                    try:
+                        ach = fetch_player_achievements(steamid_tabla, row['appid'])
+                        desbloq = sum(1 for a in ach if a.get('achieved'))
+                        total = len(ach)
+                        logros_col.append(f"{desbloq}/{total}" if total else "—")
+                    except Exception:
+                        logros_col.append("—")
+                else:
+                    logros_col.append("—")
+            df_tabla_jugador['Logros'] = logros_col
+            df_mostrar = pd.DataFrame({
+                '#': range(1, len(df_tabla_jugador) + 1),
+                'Nombre': df_tabla_jugador['name'].astype(str),
+                'Horas': df_tabla_jugador['Horas'].astype(str),
+                'Logros': df_tabla_jugador['Logros'],
+            })
+            st.caption("Logros mostrados para los 25 juegos con más horas. Resto: —")
+            st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+
     elif submit_jugador and input_perfil:
         st.error("❌ Perfil no encontrado o no existe.")
