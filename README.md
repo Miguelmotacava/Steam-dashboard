@@ -1,61 +1,54 @@
 # Steam Analytics Dashboard
 
-Dashboard interactivo de análisis del ecosistema Steam desarrollado con Streamlit y Python, desplegado en Streamlit Cloud.
+Dashboard interactivo de análisis del ecosistema Steam desarrollado con Streamlit y Python. La aplicación consume datos en tiempo real desde las APIs oficiales de Steam y CheapShark, y se despliega en Streamlit Cloud.
 
 **Aplicación en vivo:** [steam-dashboard-app-icai.streamlit.app](https://steam-dashboard-app-icai.streamlit.app/)
 
 ---
 
-## Capturas de la aplicación
+## Descripción
 
-### Tendencias
-Análisis del mercado en tiempo real: Top juegos por jugadores concurrentes, distribución por géneros, compatibilidad de plataformas y evolución histórica.
-
-![Tendencias](docs/images/tendencias.png)
-
-### Noticias
-Radar de noticias por juego con filtros temporales, métricas de parches y anuncios, y línea temporal histórica de publicaciones.
-
-![Noticias](docs/images/noticias.png)
-
-### Perfil de Jugador
-Análisis de la biblioteca Steam: Top 10 juegos, ADN por géneros (radar), distribución del tiempo y estado del backlog.
-
-![Perfil de Jugador](docs/images/jugador.png)
+Herramienta de visualización que permite analizar el mercado de videojuegos en Steam desde tres perspectivas: tendencias globales, noticias y actualizaciones por juego, y perfil de jugador. Los datos se obtienen directamente de las APIs públicas, sin almacenamiento intermedio salvo el historial de jugadores concurrentes, generado por un workflow automatizado.
 
 ---
 
-## Descripción
-
-Herramienta de visualización en tiempo real que extrae y analiza datos directamente desde las APIs oficiales de Steam y CheapShark para ofrecer insights sobre el mercado de videojuegos.
-
 ## Funcionalidades
 
-### Tendencias (Pestaña 1)
-- Top N juegos por jugadores concurrentes (configurable 10-100)
-- Cross-filtering: selecciona un juego o género en cualquier gráfico para filtrar el resto
-- KPIs: jugadores totales, precio medio, juegos gratuitos
-- Gráficos interactivos: barras (Top 10), treemap (géneros), donut (SO), scatter (precio vs Metacritic)
-- Evolución histórica de jugadores (requiere `historico_steam_streamlit/historial_top100.csv` del recolector)
-- Análisis de precio histórico: precio mínimo (CheapShark), DLCs, descuentos
-- Tabla resumen con imagen, ranking y características de cada juego
+### Tendencias
 
-### Noticias (Pestaña 2)
-- Noticias oficiales por juego con filtros temporales (última semana, mes, todo)
-- Métricas: total impactos, parches, anuncios
-- Publicaciones por categoría (Plotly)
-- Porcentaje parches vs anuncios
-- Línea temporal histórica por mes (Matplotlib)
-- Widget informativo con imagen del juego, fecha de lanzamiento y última actualización
-- Tabla resumen de noticias con fecha, título, tipo y categoría
+Análisis del mercado en tiempo real basado en el Top de jugadores concurrentes de Steam.
 
-### Perfil de Jugador (Pestaña 3)
-- Análisis de biblioteca personal por SteamID64 o URL de perfil
-- Top 10 juegos más jugados
-- Radar de preferencias por género (normalizado 0-100%)
-- Treemap de distribución del tiempo
-- Donut de estado del backlog (jugados vs sin abrir)
-- Historial de actividad por año de última partida
+- **KPIs:** jugadores concurrentes totales, número de títulos mostrados, precio medio y juegos gratuitos.
+- **Filtros:** por videojuego, plataforma (Windows, MacOS, Linux) y género.
+- **Cross-filtering:** selección de un juego o género en cualquier gráfico para filtrar el resto de visualizaciones.
+- **Gráficos:** barras (Top 10 por jugadores), treemap (distribución por géneros), donut (compatibilidad de sistemas operativos), scatter (precio vs Metacritic).
+- **Evolución histórica:** líneas de jugadores concurrentes en el tiempo y áreas por género (requiere el CSV generado por el recolector).
+- **Análisis de precio histórico:** evolución del precio base, mínimo histórico (CheapShark) y gráfico de dispersión de expansiones y cosméticos por fecha y precio.
+- **Tabla resumen:** imagen, ranking, jugadores, precio, descuento, contenido adicional y géneros de cada juego.
+
+### Noticias
+
+Radar de noticias y actualizaciones oficiales por juego.
+
+- **Filtros:** rango temporal (última semana, mes, todo) y tipo (parches, anuncios o todo).
+- **Métricas:** impactos informativos, parches y anuncios.
+- **Últimos titulares:** enlaces a las 10 noticias más recientes.
+- **Widget informativo:** imagen del juego, fecha de lanzamiento y última actualización.
+- **Gráficos:** publicaciones por categoría en barras horizontales y porcentaje parches vs anuncios en donut.
+- **Línea temporal:** evolución mensual de publicaciones (Matplotlib).
+- **Tabla resumen:** fecha, título, enlace, tipo y categoría de cada noticia.
+
+### Perfil de Jugador
+
+Análisis de la biblioteca Steam a partir del SteamID64 o la URL del perfil público.
+
+- **Métricas:** total de juegos y horas jugadas.
+- **Top 10:** juegos con más horas invertidas.
+- **Radar:** preferencias por género (porcentaje normalizado 0–100%).
+- **Treemap:** distribución del tiempo entre juegos.
+- **Donut:** estado del backlog (jugados vs sin abrir).
+- **Curva de Pareto:** concentración de horas por juego (porcentaje acumulado).
+- **Actividad reciente:** horas jugadas en los últimos 14 días por juego (si la API lo proporciona).
 
 ---
 
@@ -75,7 +68,7 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 | API | Uso | Autenticación |
 |-----|-----|---------------|
 | [Steam Web API](https://developer.valvesoftware.com/wiki/Steam_Web_API) | Rankings, noticias, perfiles de jugador | API Key |
-| [Steam Store API](https://store.steampowered.com/api/appdetails) | Precios, géneros, plataformas, contenido adicional | Sin key |
+| [Steam Store API](https://store.steampowered.com/api/appdetails) | Precios, géneros, plataformas, DLCs | Sin key |
 | [CheapShark API](https://www.cheapshark.com/api) | Precio mínimo histórico con fecha | Sin key |
 
 ---
@@ -83,12 +76,14 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 ## Instalación Local
 
 ### 1. Clonar el repositorio
+
 ```bash
 git clone https://github.com/Miguelmotacava/Steam-dashboard.git
 cd Steam-dashboard
 ```
 
 ### 2. Crear entorno virtual
+
 ```bash
 python -m venv venv
 # Windows
@@ -98,24 +93,30 @@ source venv/bin/activate
 ```
 
 ### 3. Instalar dependencias
+
 ```bash
 cd App_streamlit
 pip install -r requirements.txt
 ```
 
 ### 4. Configurar variables de entorno
-Crear archivo `.env` en `App_streamlit/`:
+
+Crear el archivo `.env` en `App_streamlit/` con:
+
 ```env
 STEAM_API_KEY=tu_api_key_aqui
 ```
-Obtener la API Key en [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey)
+
+La API Key se obtiene en [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey).
 
 ### 5. Ejecutar
+
 ```bash
 cd App_streamlit
 streamlit run app_steam.py
 ```
-O desde la raíz del proyecto: `.\run_app.ps1` (Windows)
+
+Desde la raíz del proyecto en Windows: `.\run_app.ps1`
 
 ---
 
@@ -139,7 +140,6 @@ proof/
 ├── .github/workflows/
 │   └── recolector.yml        # Ejecución cada 10 min
 ├── run_app.ps1               # Script de ejecución (Windows)
-├── docs/images/               # Capturas de pantalla
 └── README.md
 ```
 
