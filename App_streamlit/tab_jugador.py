@@ -253,7 +253,7 @@ def render_jugador(df_super=None):
                         df_sunburst,
                         path=['categoria_anillo', 'name'],
                         values='horas',
-                        title='☀️ Distribución Del Tiempo De Vida',
+                        title='☀️ Distribución Del Tiempo De Favoritos y Resto de Catálogo',
                         color='categoria_anillo',
                         color_discrete_map={
                             'Top 5 Favoritos': RED_BASE,
@@ -306,7 +306,7 @@ def render_jugador(df_super=None):
                     df_treemap,
                     path=[px.Constant("Biblioteca"), 'name'],
                     values='horas',
-                    title='📍 Distribución del Tiempo',
+                    title='📍 Distribución del Tiempo de Todos los Juegos',
                     color_discrete_sequence=[RED_BASE],
                 )
                 fig_treemap.update_traces(
