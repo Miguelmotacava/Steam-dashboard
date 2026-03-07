@@ -6,6 +6,25 @@ Dashboard interactivo de análisis del ecosistema Steam desarrollado con **Strea
 
 ---
 
+## 📸 Capturas de la aplicación
+
+### 📈 Tendencias
+Análisis del mercado en tiempo real: Top juegos por jugadores concurrentes, distribución por géneros, compatibilidad de plataformas y evolución histórica.
+
+![Tendencias](docs/images/tendencias.png)
+
+### 📰 Noticias
+Radar de noticias por juego con filtros temporales, métricas de parches y anuncios, y línea temporal histórica de publicaciones.
+
+![Noticias](docs/images/noticias.png)
+
+### 👤 Perfil de Jugador
+Análisis de tu biblioteca Steam: Top 10 juegos, ADN por géneros (radar), distribución del tiempo y estado del backlog.
+
+![Perfil de Jugador](docs/images/jugador.png)
+
+---
+
 ## 📋 Descripción
 
 Herramienta de visualización en tiempo real que extrae y analiza datos directamente desde las APIs oficiales de Steam y CheapShark para ofrecer insights sobre el mercado de videojuegos.
@@ -14,25 +33,28 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 
 ### 📈 Tendencias (Pestaña 1)
 - **Top N juegos** por jugadores concurrentes (configurable 10-100)
+- **Cross-filtering:** selecciona un juego o género en cualquier gráfico para filtrar el resto
 - KPIs: jugadores totales, precio medio, juegos gratuitos
 - Gráficos interactivos: barras (Top 10), treemap (géneros), donut (SO), scatter (precio vs Metacritic)
-- Filtros por videojuego, plataforma y género
-- **Modelo de Negocio**: precio mínimo histórico (vía CheapShark), descuentos activos, contenido adicional
+- **Evolución histórica** de jugadores (requiere `historial_top100.csv` del recolector)
+- **Análisis de Precio Histórico:** precio mínimo (CheapShark), DLCs, descuentos
+- Tabla resumen con todos los juegos filtrados
 
-### 🔎 Buscador Global (Pestaña 2)
-- Búsqueda entre **todos** los títulos del catálogo de Steam (~200.000+)
-- Datos en tiempo real: jugadores actuales, precio, descuentos, contenido adicional
-- Gráfico de evolución de precio con mínimo histórico
+### 📰 Noticias (Pestaña 2)
+- Noticias oficiales por juego con filtros temporales (última semana, mes, todo)
+- Métricas: total impactos, parches, anuncios
+- Publicaciones por categoría (Plotly)
+- Evolución temporal de noticias
+- Línea temporal histórica por mes (Matplotlib)
+- Widget informativo con imagen del juego, fecha de lanzamiento y última actualización
 
-### 📰 Noticias (Pestaña 3)
-- Noticias oficiales por juego con filtros temporales (día/semana/mes/todo)
-- Clasificación por tipo: parches vs anuncios
-- Visualización de frecuencia temporal y categorías
-
-### 👤 Perfil de Jugador (Pestaña 4)
-- Análisis de biblioteca personal por SteamID64
+### 👤 Perfil de Jugador (Pestaña 3)
+- Análisis de biblioteca personal por SteamID64 o URL de perfil
 - Top 10 juegos más jugados
-- Diagrama radar de preferencias por género
+- Radar de preferencias por género (normalizado 0-100%)
+- Treemap de distribución del tiempo
+- Donut de estado del backlog (jugados vs sin abrir)
+- Historial de actividad por año de última partida
 
 ---
 
@@ -44,6 +66,7 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 | Visualización | Plotly, Matplotlib |
 | Datos | Pandas |
 | APIs | Steam Web API, Steam Store API, CheapShark API |
+| Recolección | GitHub Actions (cron cada 10 min) |
 | Deploy | Streamlit Cloud |
 
 ## 🔌 APIs Utilizadas
@@ -75,11 +98,12 @@ source venv/bin/activate
 
 ### 3. Instalar dependencias
 ```bash
+cd App_streamlit
 pip install -r requirements.txt
 ```
 
 ### 4. Configurar variables de entorno
-Crear archivo `.env` en la raíz del proyecto:
+Crear archivo `.env` en `App_streamlit/`:
 ```env
 STEAM_API_KEY=tu_api_key_aqui
 ```
@@ -87,30 +111,34 @@ STEAM_API_KEY=tu_api_key_aqui
 
 ### 5. Ejecutar
 ```bash
+cd App_streamlit
 streamlit run app_steam.py
 ```
+O desde la raíz: `.\run_app.ps1` (Windows)
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-Steam-dashboard/
-├── app_steam.py          # Aplicación principal (desplegada)
-├── requirements.txt      # Dependencias Python
-├── .env                  # Variables de entorno (no incluido en repo)
-├── .gitignore
-├── README.md
-├── App_streamlit/        # Versión modular (referencia)
-│   ├── app_steam.py
-│   ├── data_api.py
-│   ├── tab_tendencias.py
-│   ├── tab_noticias.py
-│   ├── tab_jugador.py
-│   └── config.toml
-└── Graphs_dashboard/     # Notebooks de exploración
-    ├── graphs.ipynb
-    └── proof.ipynb
+proof/
+├── App_streamlit/
+│   ├── app_steam.py          # Aplicación principal
+│   ├── data_api.py           # Llamadas a APIs (Steam, CheapShark)
+│   ├── tab_tendencias.py     # Pestaña Tendencias
+│   ├── tab_noticias.py       # Pestaña Noticias
+│   ├── tab_jugador.py        # Pestaña Perfil de Jugador
+│   ├── config.toml           # Tema Streamlit
+│   ├── requirements.txt
+│   └── .streamlit/
+│       └── secrets.toml.example
+├── recolector.py             # Script de recolección Top 100
+├── historial_top100.csv       # Datos históricos (generado por workflow)
+├── .github/workflows/
+│   └── recolector.yml        # Ejecución cada 10 min
+├── run_app.ps1               # Script de ejecución (Windows)
+├── docs/images/              # Capturas de pantalla
+└── README.md
 ```
 
 ---

@@ -8,7 +8,7 @@ from data_api import load_news_data, fetch_app_details
 RED_BASE = '#FF4B4B'
 
 
-def aplicar_tema_plotly(fig):
+def aplicar_tema_oscuro_transparente(fig):
     """Aplica tema oscuro transparente a figuras Plotly."""
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
@@ -113,36 +113,30 @@ def render_noticias(df_super):
             st.markdown("### 📊 Análisis del Volumen Informativo")
             col_m1, col_m2 = st.columns(2)
 
-            # Gráfico Matplotlib: Publicaciones por Categoría
+            # Gráfico Plotly: Publicaciones por Categoría (barras horizontales)
             with col_m1:
-                st.markdown("**Publicaciones Por Categoría**")
                 conteo_cats = (
                     df_news['feedlabel']
                     .fillna('Otros')
                     .value_counts()
                     .sort_values(ascending=True)
+                    .reset_index()
                 )
-                fig_m1, ax_m1 = plt.subplots(figsize=(3, 2))
-                fig_m1.patch.set_alpha(0.0)
-                ax_m1.patch.set_alpha(0.0)
-                ax_m1.barh(
-                    conteo_cats.index.astype(str),
-                    conteo_cats.values,
-                    color=RED_BASE,
+                conteo_cats.columns = ['categoria', 'cantidad']
+                fig_cats = px.bar(
+                    conteo_cats,
+                    x='cantidad',
+                    y='categoria',
+                    orientation='h',
+                    title='📊 Publicaciones Por Categoría',
+                    color_discrete_sequence=[RED_BASE],
+                    labels={
+                        'cantidad': 'Número De Publicaciones (Unidades)',
+                        'categoria': 'Categoría De La Noticia (Tipo)',
+                    },
                 )
-                ax_m1.spines['top'].set_visible(False)
-                ax_m1.spines['right'].set_visible(False)
-                ax_m1.tick_params(colors='gray', labelsize=7)
-                ax_m1.set_xlabel(
-                    'Número De Publicaciones (Unidades)',
-                    color='gray',
-                    fontsize=7,
-                )
-                ax_m1.set_ylabel('Categoría', color='gray', fontsize=7)
-                ax_m1.xaxis.set_major_locator(MaxNLocator(integer=True))
-                fig_m1.tight_layout(pad=1.2)
-                st.pyplot(fig_m1, transparent=True)
-                plt.close(fig_m1)
+                fig_cats = aplicar_tema_oscuro_transparente(fig_cats)
+                st.plotly_chart(fig_cats, use_container_width=True)
 
             # Gráfico Plotly: Evolución Temporal de Noticias
             with col_m2:
@@ -159,14 +153,47 @@ def render_noticias(df_super):
                     title='📈 Evolución Temporal De Noticias',
                     color_discrete_sequence=[RED_BASE],
                     labels={
-                        'fecha': 'Fecha',
+                        'fecha': 'Fecha De Publicación (Tiempo)',
                         'publicaciones': 'Número De Publicaciones (Unidades)',
                     },
                 )
                 fig_evol.update_layout(
                     yaxis=dict(tickformat='d', dtick=1),
                 )
-                fig_evol = aplicar_tema_plotly(fig_evol)
+                fig_evol = aplicar_tema_oscuro_transparente(fig_evol)
                 st.plotly_chart(fig_evol, use_container_width=True)
+
+            # Gráfico Matplotlib: Línea temporal histórica (evolución acumulada)
+            st.markdown("### 📈 Línea Temporal Histórica de Publicaciones")
+            df_temporal = (
+                df_news.groupby(df_news['fecha_dt'].dt.to_period('M'))
+                .size()
+                .sort_index()
+                .reset_index()
+            )
+            df_temporal.columns = ['periodo', 'cantidad']
+            df_temporal['periodo'] = df_temporal['periodo'].astype(str)
+            if not df_temporal.empty:
+                fig_line, ax_line = plt.subplots(figsize=(6, 2.5))
+                fig_line.patch.set_alpha(0.0)
+                ax_line.patch.set_alpha(0.0)
+                ax_line.plot(
+                    range(len(df_temporal)),
+                    df_temporal['cantidad'].values,
+                    color=RED_BASE,
+                    marker='o',
+                    markersize=4,
+                )
+                ax_line.set_xticks(range(len(df_temporal)))
+                ax_line.set_xticklabels(df_temporal['periodo'], rotation=30, ha='right')
+                ax_line.spines['top'].set_visible(False)
+                ax_line.spines['right'].set_visible(False)
+                ax_line.tick_params(colors='gray', labelsize=8)
+                ax_line.set_xlabel('Fecha De Publicación (Tiempo)', color='gray', fontsize=8)
+                ax_line.set_ylabel('Número De Noticias (Unidades)', color='gray', fontsize=8)
+                ax_line.yaxis.set_major_locator(MaxNLocator(integer=True))
+                fig_line.tight_layout(pad=1.2)
+                st.pyplot(fig_line, transparent=True)
+                plt.close(fig_line)
         else:
             st.info("📭 No hay noticias con los filtros aplicados.")

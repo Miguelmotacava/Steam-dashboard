@@ -220,7 +220,7 @@ def render_tendencias(df_super):
                             x='Fecha',
                             y='jugadores_historicos',
                             color='nombre',
-                            title='📈 Top 10 Actual - Evolución En El Tiempo',
+                            title='📈 Evolución Por Número de Jugadores Concurrentes En El Tiempo',
                             color_discrete_sequence=PALETA_ROJA,
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
@@ -259,36 +259,6 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_area, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
-
-        # --- Evolución Temporal Top 10 (encima de Análisis de Precio) ---
-        st.markdown("### 📈 Evolución Temporal del Top 10 (Jugadores Concurrentes)")
-        if df_historial is not None and not df_historial.empty:
-            try:
-                top10_actual = df_filtrado.nlargest(10, 'jugadores_actuales')[['appid', 'nombre']].drop_duplicates()
-                df_hist_filt = df_historial[df_historial['appid'].isin(top10_actual['appid'])].copy()
-                df_hist_filt = df_hist_filt.merge(top10_actual, on='appid', how='inner')
-                if not df_hist_filt.empty:
-                    fig_evol_top10 = px.line(
-                        df_hist_filt,
-                        x='Fecha',
-                        y='jugadores_historicos',
-                        color='nombre',
-                        title='Evolución De Jugadores Concurrentes (Top 10 Actual)',
-                        color_discrete_sequence=PALETA_ROJA,
-                        labels={
-                            'Fecha': 'Fecha De Registro (Tiempo)',
-                            'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                            'nombre': 'Videojuego',
-                        },
-                    )
-                    fig_evol_top10 = _aplicar_tema_plotly(fig_evol_top10)
-                    st.plotly_chart(fig_evol_top10, use_container_width=True)
-                else:
-                    st.info("No hay datos históricos para el Top 10 actual.")
-            except Exception:
-                st.info("No se pudo cargar el historial. Ejecuta el recolector para generar datos.")
-        else:
-            st.info("El archivo historial_top100.csv no existe. El workflow de GitHub Actions lo generará automáticamente.")
 
         st.markdown("### 🛒 Análisis de Precio Histórico")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())

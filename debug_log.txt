@@ -1,7 +1,0 @@
---- PLAYER PROFILE TEST ---
-Profile: miguelmotacava
-Games: 5
-Genres: 14
-
---- CHEAPSHARK TEST ---
-Hist for Rust: {'precio_min_historico': 8.74, 'fecha_min_historico': '2018-06-21', 'precio_retail': 39.99, 'precio_actual_cs': 39.99}
