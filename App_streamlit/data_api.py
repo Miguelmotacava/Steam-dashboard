@@ -4,29 +4,48 @@ import requests
 import time
 import os
 import re
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
-# Cargar .env desde distintas rutas posibles
-load_dotenv(".env", override=True)
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
-
-STEAM_API_KEY = os.getenv("STEAM_API_KEY")
-
-# Si no está en las variables de entorno, buscar en Streamlit Secrets (Cloud)
-if not STEAM_API_KEY:
+def get_api_key(key_name="STEAM_API_KEY"):
+    """
+    Obtiene la API key de forma infalible buscando en Secrets de Streamlit o archivos .env 
+    directamente sin depender de la caché de os.environ.
+    """
+    # 1. Prioridad a Streamlit Secrets (para el despliegue en la nube)
     try:
-        STEAM_API_KEY = st.secrets.get("STEAM_API_KEY")
+        if key_name in st.secrets:
+            return st.secrets[key_name]
     except Exception:
         pass
+
+    # 2. Buscar en las variables de entorno ya cargadas
+    val = os.getenv(key_name)
+    if val: return val
+
+    # 3. Leer directamente los archivos .env locales (saltando bloqueos de SO)
+    rutas_env = [
+        ".env",
+        os.path.join(os.path.dirname(__file__), '.env'),
+        os.path.join(os.path.dirname(__file__), '..', '.env')
+    ]
+    for ruta in rutas_env:
+        if os.path.exists(ruta):
+            diccionario_env = dotenv_values(ruta)
+            if key_name in diccionario_env and diccionario_env[key_name]:
+                return diccionario_env[key_name]
+                
+    return None
 
 def obtener_steam_id_real(input_usuario):
     """Extrae el SteamID64 numérico de una URL o texto plano."""
     match = re.search(r'7656119\d{10}', input_usuario)
     if match: return match.group(0)
     
+    steam_api_key = get_api_key()
+    if not steam_api_key: return None
+    
     vanity = input_usuario.rstrip('/').split('/')[-1]
-    url_vanity = f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={STEAM_API_KEY}&vanityurl={vanity}"
+    url_vanity = f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={steam_api_key}&vanityurl={vanity}"
     try:
         res = requests.get(url_vanity).json()
         if res.get('response', {}).get('success') == 1: return res['response']['steamid']
@@ -35,7 +54,10 @@ def obtener_steam_id_real(input_usuario):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_steam_data(limite):
-    url_top = f"https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/?key={STEAM_API_KEY}"
+    steam_api_key = get_api_key()
+    if not steam_api_key: return pd.DataFrame()
+    
+    url_top = f"https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/?key={steam_api_key}"
     try:
         top_juegos = requests.get(url_top).json().get('response', {}).get('ranks', [])[:limite]
     except: return pd.DataFrame()
@@ -116,13 +138,14 @@ def load_news_data(appid):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_player_profile(steamid):
-    if not STEAM_API_KEY:
-        raise ValueError("STEAM_API_KEY no detectado (revisa el archivo .env o secrets)")
+    steam_api_key = get_api_key()
+    if not steam_api_key:
+        raise ValueError("STEAM_API_KEY no detectado (Asegúrate de configurar los Secrets en Streamlit Cloud o tener el archivo .env)")
     try:
-        url_sum = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={STEAM_API_KEY}&steamids={steamid}"
+        url_sum = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={steam_api_key}&steamids={steamid}"
         perfil = requests.get(url_sum).json().get('response', {}).get('players', [])
         
-        url_games = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={STEAM_API_KEY}&steamid={steamid}&include_appinfo=1&format=json"
+        url_games = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steam_api_key}&steamid={steamid}&include_appinfo=1&format=json"
         juegos = requests.get(url_games).json().get('response', {}).get('games', [])
     except Exception as e:
         raise RuntimeError(f"Error conectando a Steam API: {e}")
