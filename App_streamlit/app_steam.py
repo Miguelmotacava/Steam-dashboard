@@ -11,7 +11,6 @@ st.markdown("""<style>.stProgress > div > div > div > div { background-color: #F
 
 st.title("🎮 Dashboard de Análisis de Steam")
 num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
-st.markdown("---")
 
 df_super = pd.DataFrame()
 try:
