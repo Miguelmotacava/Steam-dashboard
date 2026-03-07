@@ -1,0 +1,41 @@
+name: Recolector Steam Top 100
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  recolectar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pandas
+
+      - name: Run recolector
+        env:
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+        run: python recolector.py
+
+      - name: Commit and push CSV
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add historial_top100.csv
+          if git diff --staged --quiet; then
+            echo "No hay cambios en el CSV."
+          else
+            git commit -m "chore: actualizar historial_top100.csv [automated]"
+            git push
+          fi

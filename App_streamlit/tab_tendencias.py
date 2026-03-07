@@ -1,10 +1,32 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
 RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
-RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
+PALETA_ROJA = [RED_BASE, '#FF6666', '#FF8080', '#FF9999', '#FFB3B3', '#E74C3C', '#C0392B', '#FF6B6B', '#FF8B8B', '#FF5555']
 
+
+def _ruta_historial():
+    """Ruta al CSV de historial (repo root)."""
+    return os.path.join(os.path.dirname(__file__), '..', 'historial_top100.csv')
+
+
+def _aplicar_tema_plotly(fig):
+    """Fondos transparentes y estética #FF4B4B."""
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white', size=12),
+        title_font=dict(color='white'),
+        margin=dict(l=20, r=20, t=50, b=20),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(color='white')),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(color='white')),
+    )
+    return fig
+
+
+RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 import plotly.graph_objects as go
 from data_api import fetch_history_price
 
@@ -74,7 +96,17 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
 
 def render_tendencias(df_super):
     st.header("📈 Tendencias Actuales")
-    
+
+    # Cargar historial si existe
+    df_historial = None
+    ruta_csv = _ruta_historial()
+    if os.path.exists(ruta_csv):
+        try:
+            df_historial = pd.read_csv(ruta_csv)
+            df_historial['Fecha'] = pd.to_datetime(df_historial['Fecha'])
+        except Exception:
+            df_historial = None
+
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
     with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
@@ -126,7 +158,69 @@ def render_tendencias(df_super):
                 )
                 st.plotly_chart(fig4, use_container_width=True)
 
-        st.markdown("### 🛒 Análisis de Modelo de Negocio")
+        # --- Gráficas Históricas (si existe historial) ---
+        if df_historial is not None and not df_historial.empty:
+            df_hist_merge = pd.merge(
+                df_historial,
+                df_filtrado[['appid', 'nombre', 'generos']].drop_duplicates('appid'),
+                on='appid',
+                how='inner',
+            )
+            if not df_hist_merge.empty:
+                st.markdown("---")
+                st.markdown("### 📊 Evolución Histórica de Jugadores")
+
+                col_h1, col_h2 = st.columns(2)
+                with col_h1:
+                    top_10_appids = df_filtrado.nlargest(10, 'jugadores_actuales')['appid'].tolist()
+                    df_line_top10 = df_hist_merge[df_hist_merge['appid'].isin(top_10_appids)]
+                    if not df_line_top10.empty:
+                        fig_line = px.line(
+                            df_line_top10,
+                            x='Fecha',
+                            y='jugadores_historicos',
+                            color='nombre',
+                            title='📈 Top 10 Actual - Evolución En El Tiempo',
+                            color_discrete_sequence=PALETA_ROJA,
+                            labels={
+                                'Fecha': 'Fecha De Registro (Tiempo)',
+                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'nombre': 'Videojuego',
+                            },
+                        )
+                        fig_line = _aplicar_tema_plotly(fig_line)
+                        st.plotly_chart(fig_line, use_container_width=True)
+                    else:
+                        st.info("No hay datos históricos para el Top 10 actual.")
+
+                with col_h2:
+                    df_gen_hist = (
+                        df_hist_merge.assign(genero=df_hist_merge['generos'].str.split(', '))
+                        .explode('genero')
+                        .groupby(['Fecha', 'genero'])['jugadores_historicos']
+                        .sum()
+                        .reset_index()
+                    )
+                    if not df_gen_hist.empty:
+                        fig_area = px.area(
+                            df_gen_hist,
+                            x='Fecha',
+                            y='jugadores_historicos',
+                            color='genero',
+                            title='📊 Evolución Por Género En El Tiempo',
+                            color_discrete_sequence=PALETA_ROJA,
+                            labels={
+                                'Fecha': 'Fecha De Registro (Tiempo)',
+                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'genero': 'Género',
+                            },
+                        )
+                        fig_area = _aplicar_tema_plotly(fig_area)
+                        st.plotly_chart(fig_area, use_container_width=True)
+                    else:
+                        st.info("No hay datos históricos por género.")
+
+        st.markdown("### 🛒 Análisis de Precio Histórico")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
         try:
             datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
@@ -160,19 +254,17 @@ def render_tendencias(df_super):
         st.markdown("---")
         st.markdown("### 📋 Tabla Resumen de Juegos")
         df_tabla = df_filtrado.copy()
-        df_tabla['Descuento (%)'] = df_tabla.apply(
+        df_tabla['Descuento'] = df_tabla.apply(
             lambda r: round((r['precio_inicial'] - r['precio_eur']) / r['precio_inicial'] * 100, 0)
             if pd.notna(r['precio_inicial']) and r['precio_inicial'] > 0 else 0,
             axis=1
         )
-        columnas_tabla = {
-            'nombre': 'Nombre',
-            'jugadores_actuales': 'Jugadores Actuales',
-            'precio_eur': 'Precio (Euros)',
-            'Descuento (%)': 'Descuento (%)',
-            'dlc_count': 'DLCs',
-            'metacritic_nota': 'Nota Metacritic',
-            'generos': 'Géneros',
-        }
-        df_mostrar = df_tabla[list(columnas_tabla.keys())].rename(columns=columnas_tabla)
+        df_mostrar = pd.DataFrame({
+            'Nombre': df_tabla['nombre'],
+            'Jugadores Actuales': df_tabla['jugadores_actuales'].apply(lambda x: f"{int(x):,}".replace(',', '.')),
+            'Precio Actual': df_tabla['precio_eur'].apply(lambda x: "Gratis" if pd.isna(x) or x == 0 else f"{x:.2f} €"),
+            'Descuento': df_tabla['Descuento'].astype(int).astype(str) + ' %',
+            'Contenido Adicional': df_tabla['dlc_count'].astype(int),
+            'Géneros': df_tabla['generos'].fillna(''),
+        })
         st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
