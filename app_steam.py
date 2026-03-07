@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from dotenv import load_dotenv
+from datetime import datetime
 
 # ==========================================
 # 1. CONFIGURACIÓN INICIAL Y DISEÑO
@@ -19,6 +20,9 @@ RED_BASE = '#FF4B4B'
 RED_SCALE = 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 PLOT_TEMPLATE = "plotly_white"
+
+# Sesión HTTP reutilizable (más rápido que crear una nueva conexión por request)
+session = requests.Session()
 
 # Inyectamos CSS para forzar que la barra de progreso sea ROJA
 st.markdown(
@@ -39,7 +43,7 @@ st.markdown(
 def load_steam_data(limite):
     url_top = f"https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/?key={STEAM_API_KEY}"
     try:
-        res_top = requests.get(url_top).json()
+        res_top = session.get(url_top).json()
         top_juegos = res_top.get('response', {}).get('ranks', [])[:limite]
     except Exception:
         return pd.DataFrame()
@@ -54,15 +58,21 @@ def load_steam_data(limite):
     for i, appid in enumerate(df_jugadores['appid']):
         url_store = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
         try:
-            res_store = requests.get(url_store).json()
+            res_store = session.get(url_store).json()
             if res_store and str(appid) in res_store and res_store[str(appid)].get('success'):
                 data = res_store[str(appid)]['data']
+                
+                # Extraer descuento actual
+                price_ov = data.get('price_overview', {})
+                es_gratis = data.get('is_free', False)
+                
                 datos_tienda.append({
                     'appid': appid, 'nombre': data.get('name', 'Desconocido'),
-                    'es_gratis': data.get('is_free', False),
-                    'precio_inicial': data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0,
-                    'precio_eur': data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0,
-                    'dlc_count': len(data.get('dlc', [])),
+                    'es_gratis': es_gratis,
+                    'precio_inicial': price_ov.get('initial', 0) / 100 if not es_gratis else 0.0,
+                    'precio_eur': price_ov.get('final', 0) / 100 if not es_gratis else 0.0,
+                    'descuento_pct': price_ov.get('discount_percent', 0),
+                    'contenido_adicional_count': len(data.get('dlc', [])),
                     'metacritic_nota': data.get('metacritic', {}).get('score', None),
                     'windows': data.get('platforms', {}).get('windows', False),
                     'mac': data.get('platforms', {}).get('mac', False),
@@ -71,7 +81,7 @@ def load_steam_data(limite):
                 })
         except Exception:
             pass 
-        time.sleep(1.2)
+        time.sleep(0.5)
         my_bar.progress((i + 1) / len(df_jugadores), text=f"⏳ Descargando datos de {limite} juegos populares...")
     
     my_bar.empty()
@@ -82,7 +92,7 @@ def load_steam_data(limite):
 def load_news_data(appid):
     url_news = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count=100&format=json"
     try:
-        res_news = requests.get(url_news).json()
+        res_news = session.get(url_news).json()
         noticias = res_news.get('appnews', {}).get('newsitems', [])
         df_noticias = pd.DataFrame(noticias)
         if not df_noticias.empty:
@@ -95,11 +105,11 @@ def load_news_data(appid):
 def load_player_profile(steamid):
     try:
         url_sum = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={STEAM_API_KEY}&steamids={steamid}"
-        res_sum = requests.get(url_sum).json()
+        res_sum = session.get(url_sum).json()
         perfil = res_sum.get('response', {}).get('players', [])
         
         url_games = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={STEAM_API_KEY}&steamid={steamid}&include_appinfo=1&format=json"
-        res_games = requests.get(url_games).json()
+        res_games = session.get(url_games).json()
         juegos = res_games.get('response', {}).get('games', [])
     except Exception:
         return None, None, None
@@ -117,14 +127,14 @@ def load_player_profile(steamid):
     for i, appid in enumerate(top_15_jugados['appid']):
         try:
             url_store = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
-            res_store = requests.get(url_store).json()
+            res_store = session.get(url_store).json()
             if res_store and str(appid) in res_store and res_store[str(appid)].get('success'):
                 data = res_store[str(appid)]['data']
                 for gen in [g['description'] for g in data.get('genres', [])]:
                     generos_jugador.append({'juego': data.get('name'), 'genero': gen, 'minutos': top_15_jugados.iloc[i]['playtime_forever']})
         except Exception:
             pass
-        time.sleep(1.2)
+        time.sleep(0.5)
     
     return perfil[0], df_juegos, pd.DataFrame(generos_jugador)
 
@@ -132,22 +142,127 @@ def load_player_profile(steamid):
 def load_all_apps():
     try:
         url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-        res = requests.get(url).json()
+        res = session.get(url).json()
         apps = res.get('applist', {}).get('apps', [])
         df = pd.DataFrame(apps)
         return df[df['name'] != '']
     except Exception:
         return pd.DataFrame()
 
-def generar_grafico_precio(precio_ini, precio_fin, nombre):
-    """Genera un gráfico simulado de evolución de precio"""
-    fechas = pd.date_range(end=pd.Timestamp.today(), periods=6, freq='ME')
-    precios = [precio_ini, precio_ini, precio_ini, precio_fin, precio_fin, precio_fin]
-    df_hist = pd.DataFrame({'Fecha': fechas, 'Precio': precios})
-    fig = px.line(df_hist, x='Fecha', y='Precio', title=f'📈 Evolución del Precio: {nombre}', 
-                  markers=True, labels={'Precio': 'Euros (€)'}, color_discrete_sequence=[RED_BASE])
-    fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10])
-    return fig
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_precio_historico(appid, nombre):
+    """Consulta CheapShark para obtener el precio más bajo histórico en Steam."""
+    try:
+        # Buscar el juego en CheapShark por steamAppID
+        url_search = f"https://www.cheapshark.com/api/1.0/games?steamAppID={appid}"
+        res = session.get(url_search, timeout=5).json()
+        if not res or len(res) == 0:
+            return None
+        
+        game_id = res[0].get('gameID')
+        if not game_id:
+            return None
+        
+        # Obtener detalles con precio más bajo histórico
+        url_detail = f"https://www.cheapshark.com/api/1.0/games?id={game_id}"
+        res_detail = session.get(url_detail, timeout=5).json()
+        
+        cheapest = res_detail.get('cheapestPriceEver', {})
+        precio_min = float(cheapest.get('price', 0))
+        fecha_min_ts = cheapest.get('date', 0)
+        fecha_min = datetime.fromtimestamp(fecha_min_ts).strftime('%Y-%m-%d') if fecha_min_ts else None
+        
+        # Precio actual y base en Steam (storeID=1)
+        deals = res_detail.get('deals', [])
+        steam_deal = next((d for d in deals if d.get('storeID') == '1'), None)
+        
+        return {
+            'precio_min_historico': precio_min,
+            'fecha_min_historico': fecha_min,
+            'precio_retail': float(steam_deal['retailPrice']) if steam_deal else None,
+            'precio_actual_cs': float(steam_deal['price']) if steam_deal else None,
+        }
+    except Exception:
+        return None
+
+def generar_grafico_precio(precio_ini, precio_fin, nombre, datos_historicos=None):
+    """Genera un gráfico de evolución de precio con datos reales de CheapShark."""
+    
+    if datos_historicos and datos_historicos.get('fecha_min_historico'):
+        # Construir timeline con puntos reales
+        hoy = pd.Timestamp.today().strftime('%Y-%m-%d')
+        fecha_min = datos_historicos['fecha_min_historico']
+        precio_min = datos_historicos['precio_min_historico']
+        
+        fechas = [fecha_min, hoy]
+        precios = [precio_min, precio_fin]
+        etiquetas = [
+            f"Mínimo Histórico: {precio_min:.2f}€",
+            f"Hoy: {precio_fin:.2f}€"
+        ]
+        
+        # Si el precio base es diferente al mínimo y al actual, añadirlo antes
+        if precio_ini > 0 and abs(precio_ini - precio_min) > 0.01:
+            # Insertar el precio base como primer punto (1 día antes del mínimo)
+            fecha_base = (pd.to_datetime(fecha_min) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+            fechas.insert(0, fecha_base)
+            precios.insert(0, precio_ini)
+            etiquetas.insert(0, f"Precio Base: {precio_ini:.2f}€")
+        
+        df_hist = pd.DataFrame({
+            'Fecha': pd.to_datetime(fechas),
+            'Precio (€)': precios,
+            'Detalle': etiquetas
+        })
+        
+        fig = go.Figure()
+        
+        # Línea principal
+        fig.add_trace(go.Scatter(
+            x=df_hist['Fecha'], y=df_hist['Precio (€)'],
+            mode='lines+markers+text',
+            marker=dict(size=12, color=RED_BASE),
+            line=dict(color=RED_BASE, width=3),
+            text=etiquetas,
+            textposition='top center',
+            textfont=dict(size=10),
+            hovertemplate='%{text}<br>Fecha: %{x|%d/%m/%Y}<extra></extra>',
+            name='Precio'
+        ))
+        
+        # Zona sombreada entre precio base y mínimo
+        if len(fechas) >= 2:
+            fig.add_hrect(
+                y0=min(precios) - 0.5, y1=max(precios) + 0.5,
+                fillcolor="rgba(255, 75, 75, 0.07)",
+                line_width=0,
+            )
+        
+        # Línea de referencia del precio mínimo
+        fig.add_hline(
+            y=precio_min, line_dash="dash", line_color="green",
+            annotation_text=f"Mínimo: {precio_min:.2f}€",
+            annotation_position="bottom right"
+        )
+        
+        fig.update_layout(
+            title=f'📉 Evolución Real del Precio: {nombre}',
+            xaxis_title='Fecha',
+            yaxis_title='Precio (€)',
+            template=PLOT_TEMPLATE,
+            yaxis_range=[0, max(precios) + max(precios) * 0.3 + 2],
+            showlegend=False
+        )
+        return fig
+    else:
+        # Fallback: solo precio base y actual (sin datos de CheapShark)
+        fechas = pd.date_range(end=pd.Timestamp.today(), periods=2, freq='ME')
+        precios = [precio_ini, precio_fin]
+        df_hist = pd.DataFrame({'Fecha': fechas, 'Precio (€)': precios})
+        fig = px.line(df_hist, x='Fecha', y='Precio (€)', title=f'📈 Precio: {nombre}', 
+                      markers=True, color_discrete_sequence=[RED_BASE])
+        fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10], template=PLOT_TEMPLATE)
+        return fig
 
 # ==========================================
 # INTERFAZ PRINCIPAL
@@ -225,25 +340,36 @@ with tab1:
                                       color='nombre')
                     st.plotly_chart(fig4, use_container_width=True)
 
-            # --- DLCs y EVOLUCIÓN DE PRECIO ---
+            # --- CONTENIDO ADICIONAL Y EVOLUCIÓN DE PRECIO ---
             st.markdown("### 🛒 Análisis de Modelo de Negocio por Juego")
             juego_analisis = st.selectbox("Selecciona un juego para ver su modelo de negocio:", df_filtrado['nombre'].unique(), key="sel_negocio")
             datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
             
+            # Obtener precio histórico de CheapShark
+            with st.spinner("🔍 Consultando historial de precios en CheapShark..."):
+                datos_historicos = obtener_precio_historico(datos_juego['appid'], juego_analisis)
+            
             col_d1, col_d2 = st.columns([1, 2])
             with col_d1:
-                st.metric("🧩 Expansiones, DLCs y Cosméticos", int(datos_juego['dlc_count']))
-                st.write(f"**Precio Inicial:** {datos_juego['precio_inicial']} €")
-                st.write(f"**Precio Actual:** {datos_juego['precio_eur']} €")
+                st.metric("📦 Contenido Adicional", int(datos_juego['contenido_adicional_count']))
+                st.write(f"**Precio Base (sin descuento):** {datos_juego['precio_inicial']:.2f} €")
+                st.write(f"**Precio Actual:** {datos_juego['precio_eur']:.2f} €")
+                if datos_juego['descuento_pct'] > 0:
+                    st.success(f"🏷️ ¡Descuento activo: **-{datos_juego['descuento_pct']}%**!")
+                if datos_historicos:
+                    st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
+                    if datos_historicos.get('fecha_min_historico'):
+                        st.caption(f"Registrado el {datos_historicos['fecha_min_historico']}")
+                else:
+                    st.caption("ℹ️ Sin datos históricos disponibles para este título.")
             with col_d2:
-                fig_precio = generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis)
+                fig_precio = generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_historicos)
                 st.plotly_chart(fig_precio, use_container_width=True)
 
 # ==========================================
 # PESTAÑA 2: BUSCADOR GLOBAL
 # ==========================================
 with tab2:
-    # Solucionada la redundancia visual aquí
     st.header("🌌 Explorador del Catálogo")
     st.write("Accede a las métricas en tiempo real de cualquier título fuera del Top 100.")
     
@@ -256,11 +382,12 @@ with tab2:
             coincidencias = df_all_apps[df_all_apps['name'].str.contains(texto_buscar, case=False, na=False)]
             
             if not coincidencias.empty:
+                coincidencias = coincidencias.copy()
                 coincidencias['longitud'] = coincidencias['name'].str.len()
                 juegos_opciones = coincidencias.sort_values('longitud').head(10)['name'].tolist()
                 
                 juego_seleccionado = st.selectbox("Resultados encontrados. Selecciona el correcto:", juegos_opciones)
-                appid_buscar = coincidencias[coincidencias['name'] == juego_seleccionado]['appid'].iloc[0]
+                appid_buscar = int(coincidencias[coincidencias['name'] == juego_seleccionado]['appid'].iloc[0])
                 
                 st.markdown("---")
                 
@@ -268,31 +395,43 @@ with tab2:
                 
                 url_players = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid_buscar}"
                 try:
-                    res_players = requests.get(url_players).json()
+                    res_players = session.get(url_players).json()
                     jugadores_vivo = res_players.get('response', {}).get('player_count', 0)
                 except:
                     jugadores_vivo = 0
                     
                 url_store = f"https://store.steampowered.com/api/appdetails?appids={appid_buscar}&cc=es"
                 try:
-                    res_store = requests.get(url_store).json()
+                    res_store = session.get(url_store).json()
                     if res_store and str(appid_buscar) in res_store and res_store[str(appid_buscar)].get('success'):
                         data = res_store[str(appid_buscar)]['data']
-                        precio_ini = data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0
-                        precio_fin = data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0
-                        dlcs = len(data.get('dlc', []))
+                        es_gratis = data.get('is_free', False)
+                        price_ov = data.get('price_overview', {})
+                        precio_ini = price_ov.get('initial', 0) / 100 if not es_gratis else 0.0
+                        precio_fin = price_ov.get('final', 0) / 100 if not es_gratis else 0.0
+                        descuento = price_ov.get('discount_percent', 0)
+                        contenido_adicional = len(data.get('dlc', []))
+                        
+                        # Obtener datos históricos de CheapShark
+                        datos_hist_buscar = obtener_precio_historico(appid_buscar, data.get('name', ''))
                         
                         with col_b1:
                             st.image(data.get('header_image', ''), use_container_width=True)
-                            st.metric("🧩 DLCs y Cosméticos (Unidades)", dlcs)
+                            st.metric("📦 Contenido Adicional", contenido_adicional)
                         
                         with col_b2:
                             st.subheader(data.get('name'))
                             st.metric("👥 Jugadores Actuales", f"{jugadores_vivo:,}".replace(',', '.'))
-                            st.metric("💸 Precio Final (Euros)", f"{precio_fin} €" if precio_fin > 0 else "Gratis")
+                            st.metric("💸 Precio Actual", f"{precio_fin:.2f} €" if precio_fin > 0 else "Gratis")
+                            if descuento > 0:
+                                st.success(f"🏷️ ¡Descuento activo: **-{descuento}%**!")
+                            if datos_hist_buscar:
+                                st.write(f"**💰 Mínimo Histórico:** {datos_hist_buscar['precio_min_historico']:.2f} €")
+                                if datos_hist_buscar.get('fecha_min_historico'):
+                                    st.caption(f"Registrado el {datos_hist_buscar['fecha_min_historico']}")
                             
                         with col_b3:
-                            fig_p_buscar = generar_grafico_precio(precio_ini, precio_fin, data.get('name'))
+                            fig_p_buscar = generar_grafico_precio(precio_ini, precio_fin, data.get('name'), datos_hist_buscar)
                             st.plotly_chart(fig_p_buscar, use_container_width=True)
                 except Exception:
                     st.error("No se han podido obtener los datos de la tienda para este juego.")
