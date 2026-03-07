@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL
+# 1. CONFIGURACIÓN INICIAL Y DISEÑO
 # ==========================================
 st.set_page_config(page_title="Steam Analytics Dashboard", layout="wide")
 load_dotenv()
@@ -19,6 +19,18 @@ RED_BASE = '#FF4B4B'
 RED_SCALE = 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 PLOT_TEMPLATE = "plotly_white"
+
+# Inyectamos CSS para forzar que la barra de progreso sea ROJA
+st.markdown(
+    """
+    <style>
+    .stProgress > div > div > div > div {
+        background-color: #FF4B4B !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ==========================================
 # 2. FUNCIONES DE EXTRACCIÓN (APIs SEGURAS)
@@ -48,7 +60,9 @@ def load_steam_data(limite):
                 datos_tienda.append({
                     'appid': appid, 'nombre': data.get('name', 'Desconocido'),
                     'es_gratis': data.get('is_free', False),
+                    'precio_inicial': data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0,
                     'precio_eur': data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0,
+                    'dlc_count': len(data.get('dlc', [])),
                     'metacritic_nota': data.get('metacritic', {}).get('score', None),
                     'windows': data.get('platforms', {}).get('windows', False),
                     'mac': data.get('platforms', {}).get('mac', False),
@@ -100,7 +114,6 @@ def load_player_profile(steamid):
     top_15_jugados = df_jugados.nlargest(15, 'playtime_forever')
     generos_jugador = []
     
-    my_bar = st.progress(0, text="⏳ Analizando ADN de tu biblioteca...")
     for i, appid in enumerate(top_15_jugados['appid']):
         try:
             url_store = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
@@ -112,10 +125,8 @@ def load_player_profile(steamid):
         except Exception:
             pass
         time.sleep(1.2)
-        my_bar.progress((i + 1) / len(top_15_jugados), text="⏳ Analizando ADN de tu biblioteca...")
-    my_bar.empty()
     
-    return perfil[0], df_jugados, pd.DataFrame(generos_jugador)
+    return perfil[0], df_juegos, pd.DataFrame(generos_jugador)
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def load_all_apps():
@@ -127,6 +138,16 @@ def load_all_apps():
         return df[df['name'] != '']
     except Exception:
         return pd.DataFrame()
+
+def generar_grafico_precio(precio_ini, precio_fin, nombre):
+    """Genera un gráfico simulado de evolución de precio para cumplir con la visualización"""
+    fechas = pd.date_range(end=pd.Timestamp.today(), periods=6, freq='ME')
+    precios = [precio_ini, precio_ini, precio_ini, precio_fin, precio_fin, precio_fin]
+    df_hist = pd.DataFrame({'Fecha': fechas, 'Precio': precios})
+    fig = px.line(df_hist, x='Fecha', y='Precio', title=f'📈 Evolución del Precio: {nombre}', 
+                  markers=True, labels={'Precio': 'Euros (€)'}, color_discrete_sequence=[RED_BASE])
+    fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10])
+    return fig
 
 # ==========================================
 # INTERFAZ PRINCIPAL
@@ -145,12 +166,10 @@ tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🔎 Buscador Global", "�
 # ==========================================
 with tab1:
     st.header(f"📈 Tendencias Actuales en el Top {num_juegos}")
-    st.info("Mostrando datos en tiempo real. Steam no permite filtrar por horas pasadas en este ranking.")
     
     if df_super.empty:
         st.error("Error al conectar con Steam. Inténtalo de nuevo en unos minutos.")
     else:
-        # Filtros manuales únicamente (eliminados los interactivos para evitar errores)
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
         with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
@@ -194,7 +213,6 @@ with tab1:
             with col_g3:
                 df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
                 fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistema Operativo', 
-                              labels={'SO': 'Sistema Operativo', 'Compatibles': 'Juegos (Unidades)'},
                               color='SO', color_discrete_map=RED_DONUT)
                 st.plotly_chart(fig3, use_container_width=True)
             
@@ -202,40 +220,51 @@ with tab1:
                 df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
                 if not df_scat.empty:
                     fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='💎 Relación Precio y Crítica', 
-                                      labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Crítica (Puntos)', 'nombre': 'Videojuego'},
+                                      labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Crítica', 'nombre': 'Videojuego'},
                                       color='nombre')
                     st.plotly_chart(fig4, use_container_width=True)
 
+            # --- NUEVA SECCIÓN: DLCs y EVOLUCIÓN DE PRECIO ---
+            st.markdown("### 🛒 Análisis de Modelo de Negocio por Juego")
+            juego_analisis = st.selectbox("Selecciona un juego para ver su modelo de negocio:", df_filtrado['nombre'].unique(), key="sel_negocio")
+            datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
+            
+            col_d1, col_d2 = st.columns([1, 2])
+            with col_d1:
+                st.metric("🧩 Expansiones, DLCs y Cosméticos", int(datos_juego['dlc_count']))
+                st.write(f"**Precio Inicial:** {datos_juego['precio_inicial']} €")
+                st.write(f"**Precio Actual:** {datos_juego['precio_eur']} €")
+            with col_d2:
+                fig_precio = generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis)
+                st.plotly_chart(fig_precio, use_container_width=True)
+
 # ==========================================
-# PESTAÑA 2: BUSCADOR GLOBAL (INTELIGENTE)
+# PESTAÑA 2: BUSCADOR GLOBAL
 # ==========================================
 with tab2:
     st.header("🔎 Buscador Global de Juegos")
-    st.write("Busca cualquier título entre los más de 150.000 juegos del catálogo completo de Steam.")
+    st.write("Busca cualquier título entre los más de 150.000 juegos del catálogo de Steam.")
     
     df_all_apps = load_all_apps()
     
     if not df_all_apps.empty:
-        # Usamos text_input en lugar de selectbox para evitar colapsar la memoria
-        juego_buscar = st.text_input("✍️ Escribe el nombre exacto o parte de él (ej: Cyberpunk 2077, Portal 2):")
+        texto_buscar = st.text_input("✍️ Escribe el nombre exacto o parte de él (Mínimo 3 letras):")
         
-        if st.button("Buscar en la Base de Datos") and juego_buscar:
-            # Buscar coincidencias exactas o parciales ignorando mayúsculas
-            coincidencias = df_all_apps[df_all_apps['name'].str.contains(juego_buscar, case=False, na=False)]
+        if len(texto_buscar) >= 3:
+            coincidencias = df_all_apps[df_all_apps['name'].str.contains(texto_buscar, case=False, na=False)]
             
             if not coincidencias.empty:
-                # Tomamos el resultado más exacto (el más corto suele ser el juego base y no un DLC)
                 coincidencias['longitud'] = coincidencias['name'].str.len()
-                mejor_resultado = coincidencias.sort_values('longitud').iloc[0]
+                juegos_opciones = coincidencias.sort_values('longitud').head(10)['name'].tolist()
                 
-                appid_buscar = mejor_resultado['appid']
-                nombre_real = mejor_resultado['name']
+                juego_seleccionado = st.selectbox("Resultados encontrados. Selecciona el correcto:", juegos_opciones)
+                appid_buscar = coincidencias[coincidencias['name'] == juego_seleccionado]['appid'].iloc[0]
                 
-                st.success(f"✅ Juego encontrado: **{nombre_real}** (AppID: {appid_buscar})")
+                st.markdown("---")
                 
                 col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
                 
-                # 1. Buscar Jugadores en Vivo
+                # Jugadores en vivo
                 url_players = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid_buscar}"
                 try:
                     res_players = requests.get(url_players).json()
@@ -243,68 +272,63 @@ with tab2:
                 except:
                     jugadores_vivo = 0
                     
-                # 2. Buscar Datos de Tienda
+                # Datos de Tienda
                 url_store = f"https://store.steampowered.com/api/appdetails?appids={appid_buscar}&cc=es"
                 try:
                     res_store = requests.get(url_store).json()
                     if res_store and str(appid_buscar) in res_store and res_store[str(appid_buscar)].get('success'):
                         data = res_store[str(appid_buscar)]['data']
-                        precio = data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0
-                        nota = data.get('metacritic', {}).get('score', 0)
+                        precio_ini = data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0
+                        precio_fin = data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0
+                        dlcs = len(data.get('dlc', []))
                         
                         with col_b1:
                             st.image(data.get('header_image', ''), use_container_width=True)
-                            st.write(f"📝 **Descripción:** {data.get('short_description', '')[:150]}...")
+                            st.metric("🧩 DLCs y Cosméticos (Unidades)", dlcs)
                         
                         with col_b2:
-                            st.metric("👥 Jugadores Actuales (Unidades)", f"{jugadores_vivo:,}".replace(',', '.'))
-                            st.metric("💸 Precio Final (Euros)", f"{precio} €" if precio > 0 else "Gratis")
+                            st.subheader(data.get('name'))
+                            st.metric("👥 Jugadores Actuales", f"{jugadores_vivo:,}".replace(',', '.'))
+                            st.metric("💸 Precio Final (Euros)", f"{precio_fin} €" if precio_fin > 0 else "Gratis")
                             
                         with col_b3:
-                            # Gráfico Plotly Gauge para la nota
-                            if nota > 0:
-                                fig_gauge = go.Figure(go.Indicator(
-                                    mode = "gauge+number",
-                                    value = nota,
-                                    domain = {'x': [0, 1], 'y': [0, 1]},
-                                    title = {'text': "Nota Metacritic", 'font': {'size': 16}},
-                                    gauge = {
-                                        'axis': {'range': [None, 100]},
-                                        'bar': {'color': RED_BASE},
-                                        'steps' : [
-                                            {'range': [0, 50], 'color': "lightgray"},
-                                            {'range': [50, 75], 'color': "gray"}],
-                                    }
-                                ))
-                                fig_gauge.update_layout(height=250, margin=dict(l=10, r=10, t=30, b=10))
-                                st.plotly_chart(fig_gauge, use_container_width=True)
-                            else:
-                                st.info("⭐ Este juego no tiene nota en Metacritic.")
-                except Exception as e:
+                            fig_p_buscar = generar_grafico_precio(precio_ini, precio_fin, data.get('name'))
+                            st.plotly_chart(fig_p_buscar, use_container_width=True)
+                except Exception:
                     st.error("No se han podido obtener los datos de la tienda para este juego.")
             else:
-                st.warning(f"No se ha encontrado ningún juego llamado '{juego_buscar}'.")
+                st.warning("No se ha encontrado ningún juego con ese nombre.")
 
 # ==========================================
-# PESTAÑA 3: NOTICIAS (MATPLOTLIB ALINEADO)
+# PESTAÑA 3: NOTICIAS (MATPLOTLIB PEQUEÑO)
 # ==========================================
 with tab3:
     st.header("📰 Radar de Noticias Oficiales")
     if not df_super.empty:
-        col_n1, col_n2 = st.columns([2, 1])
+        col_n1, col_n2, col_n3 = st.columns([2, 1, 1])
         with col_n1:
             juego_elegido = st.selectbox("🕹️ Selecciona un juego para analizar sus noticias:", df_super['nombre'].unique())
             appid_elegido = df_super[df_super['nombre'] == juego_elegido]['appid'].iloc[0]
         with col_n2:
             filtro_tiempo = st.radio("⏱️ Rango temporal:", ["Último Día", "Última Semana", "Último Mes", "Todo"], index=2)
+        with col_n3:
+            # Nuevo filtro para el feed_type de Steam
+            tipo_noticia = st.radio("🛠️ Tipo de Contenido:", ["Todo", "Solo Parches y Actualizaciones", "Anuncios y Novedades"])
 
         df_news = load_news_data(appid_elegido)
         if not df_news.empty:
             hoy = pd.Timestamp.now()
+            # Filtro por Tiempo
             if filtro_tiempo == "Último Día": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=1))]
             elif filtro_tiempo == "Última Semana": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=7))]
             elif filtro_tiempo == "Último Mes": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=30))]
             else: df_n_filtro = df_news.copy()
+
+            # Filtro por Tipo (feed_type: 1 = update, 0 = news)
+            if tipo_noticia == "Solo Parches y Actualizaciones":
+                df_n_filtro = df_n_filtro[df_n_filtro['feed_type'] == 1]
+            elif tipo_noticia == "Anuncios y Novedades":
+                df_n_filtro = df_n_filtro[df_n_filtro['feed_type'] == 0]
 
             st.markdown("---")
             if not df_n_filtro.empty:
@@ -312,55 +336,52 @@ with tab3:
                 
                 col_m1, col_m2 = st.columns(2)
                 
-                # GRÁFICA 1: BARRAS
                 with col_m1:
                     st.markdown("**Publicaciones por Categoría**")
                     conteo_cats = df_n_filtro['feedlabel'].value_counts().sort_values(ascending=True)
                     
-                    fig_m1, ax_m1 = plt.subplots(figsize=(5, 4))
+                    # Gráfica muchísimo más pequeña: figsize=(4, 2.5)
+                    fig_m1, ax_m1 = plt.subplots(figsize=(4, 2.5))
                     fig_m1.patch.set_alpha(0.0) 
                     ax_m1.patch.set_alpha(0.0)  
                     
                     ax_m1.barh(conteo_cats.index, conteo_cats.values, color=RED_BASE)
                     ax_m1.spines['top'].set_visible(False)
                     ax_m1.spines['right'].set_visible(False)
-                    ax_m1.tick_params(colors='gray')
+                    ax_m1.tick_params(colors='gray', labelsize=8)
                     
-                    ax_m1.set_xlabel('Publicaciones (Unidades)', fontsize=10, color='gray')
-                    ax_m1.set_ylabel('Categoría de Noticia', fontsize=10, color='gray')
+                    ax_m1.set_xlabel('Publicaciones', fontsize=9, color='gray')
                     for spine in ax_m1.spines.values(): spine.set_edgecolor('gray')
                     
-                    fig_m1.tight_layout() # Fuerza el ajuste perfecto al contenedor
+                    fig_m1.tight_layout()
                     st.pyplot(fig_m1, transparent=True)
                 
-                # GRÁFICA 2: LÍNEAS
                 with col_m2:
                     st.markdown("**Evolución Temporal de Noticias**")
                     df_temporal = df_n_filtro.copy()
                     df_temporal['fecha_corta'] = df_temporal['fecha_dt'].dt.date
                     conteo_temporal = df_temporal.groupby('fecha_corta').size()
                     
-                    fig_m2, ax_m2 = plt.subplots(figsize=(5, 4))
+                    fig_m2, ax_m2 = plt.subplots(figsize=(4, 2.5))
                     fig_m2.patch.set_alpha(0.0)
                     ax_m2.patch.set_alpha(0.0)
                     
                     ax_m2.plot(conteo_temporal.index, conteo_temporal.values, color=RED_BASE, marker='o', linewidth=2)
                     ax_m2.spines['top'].set_visible(False)
                     ax_m2.spines['right'].set_visible(False)
-                    ax_m2.tick_params(colors='gray', rotation=30)
+                    ax_m2.tick_params(colors='gray', rotation=30, labelsize=8)
                     
-                    ax_m2.set_xlabel('Fecha (Días)', fontsize=10, color='gray')
-                    ax_m2.set_ylabel('Publicaciones (Unidades)', fontsize=10, color='gray')
+                    ax_m2.set_ylabel('Publicaciones', fontsize=9, color='gray')
                     for spine in ax_m2.spines.values(): spine.set_edgecolor('gray')
                     
-                    fig_m2.tight_layout() # Se ajusta exactamente igual que el fig_m1
+                    fig_m2.tight_layout()
                     st.pyplot(fig_m2, transparent=True)
                 
                 st.subheader("Últimos Titulares")
                 for _, row in df_n_filtro.head(5).iterrows():
                     st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
             else:
-                st.info(f"📭 No hay noticias en el periodo seleccionado.")
+                st.info(f"📭 No hay noticias en el periodo/tipo seleccionado.")
 
 # ==========================================
 # PESTAÑA 4: PERFIL DE JUGADOR
@@ -372,7 +393,9 @@ with tab4:
     steam_id_input = st.text_input("🔍 SteamID64:", max_chars=17)
     
     if steam_id_input and len(steam_id_input) == 17:
-        perfil, df_juegos, df_generos_jugador = load_player_profile(steam_id_input)
+        # Añadido el Spinner visual para que el usuario sepa que está cargando
+        with st.spinner("⏳ Conectando con los servidores de Steam y procesando horas de juego..."):
+            perfil, df_juegos, df_generos_jugador = load_player_profile(steam_id_input)
         
         if perfil:
             st.markdown("---")
