@@ -78,7 +78,7 @@ def render_noticias(df_super):
             col_titulares, col_tarjeta = st.columns([2, 1])
             with col_titulares:
                 st.subheader("Últimos Titulares")
-                for _, row in df_news.head(5).iterrows():
+                for _, row in df_news.head(10).iterrows():
                     st.markdown(
                         f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - "
                         f"[{row['title']}]({row['url']})"
@@ -98,13 +98,23 @@ def render_noticias(df_super):
                     header_image = header_image or detalles['header_image']
                     fecha_salida = fecha_salida or detalles['fecha_salida']
 
+                # Formatear fecha de lanzamiento (unificar con dd/mm/yyyy)
+                if not fecha_salida or (isinstance(fecha_salida, str) and 'coming' in fecha_salida.lower()):
+                    fecha_lanzamiento_str = "Desconocida"
+                else:
+                    try:
+                        fecha_parseada = pd.to_datetime(fecha_salida, errors='coerce')
+                        fecha_lanzamiento_str = fecha_parseada.strftime('%d/%m/%Y') if pd.notna(fecha_parseada) else "Desconocida"
+                    except Exception:
+                        fecha_lanzamiento_str = "Desconocida"
+
                 ultima_actualizacion = df_news['fecha_dt'].max()
 
                 with st.container():
                     st.markdown("#### 📦 Información del Juego")
                     if header_image:
                         st.image(header_image, use_container_width=True)
-                    st.markdown(f"**Fecha De Lanzamiento:** {fecha_salida or 'N/D'}")
+                    st.markdown(f"**Fecha De Lanzamiento:** {fecha_lanzamiento_str}")
                     st.markdown(
                         f"**Última Actualización:** {ultima_actualizacion.strftime('%d/%m/%Y')}"
                     )
@@ -135,33 +145,43 @@ def render_noticias(df_super):
                         'categoria': 'Categoría De La Noticia (Tipo)',
                     },
                 )
+                fig_cats.update_traces(hovertemplate='<b>%{y}</b><br>Publicaciones: %{x}<extra></extra>')
                 fig_cats = aplicar_tema_oscuro_transparente(fig_cats)
                 st.plotly_chart(fig_cats, use_container_width=True)
 
-            # Gráfico Plotly: Evolución Temporal de Noticias
+            # Gráfico Plotly: Porcentaje Parches vs Anuncios
             with col_m2:
-                conteo_temp = (
-                    df_news.groupby(df_news['fecha_dt'].dt.date)
-                    .size()
-                    .reset_index(name='publicaciones')
-                )
-                conteo_temp.columns = ['fecha', 'publicaciones']
-                fig_evol = px.bar(
-                    conteo_temp,
-                    x='fecha',
-                    y='publicaciones',
-                    title='📈 Evolución Temporal De Noticias',
-                    color_discrete_sequence=[RED_BASE],
-                    labels={
-                        'fecha': 'Fecha De Publicación (Tiempo)',
-                        'publicaciones': 'Número De Publicaciones (Unidades)',
-                    },
-                )
-                fig_evol.update_layout(
-                    yaxis=dict(tickformat='d', dtick=1),
-                )
-                fig_evol = aplicar_tema_oscuro_transparente(fig_evol)
-                st.plotly_chart(fig_evol, use_container_width=True)
+                n_parches = len(df_news[df_news['feed_type'] == 1]) if 'feed_type' in df_news.columns else 0
+                n_anuncios = len(df_news[df_news['feed_type'] == 0]) if 'feed_type' in df_news.columns else 0
+                total = n_parches + n_anuncios
+                if total > 0:
+                    df_tipo = pd.DataFrame({
+                        'tipo': ['Parches', 'Anuncios'],
+                        'cantidad': [n_parches, n_anuncios],
+                        'porcentaje': [
+                            round(n_parches / total * 100, 1),
+                            round(n_anuncios / total * 100, 1),
+                        ],
+                    })
+                    fig_tipo = px.pie(
+                        df_tipo,
+                        names='tipo',
+                        values='cantidad',
+                        hole=0.5,
+                        title='📊 Porcentaje De Noticias: Parches vs Anuncios',
+                        color='tipo',
+                        color_discrete_map={'Parches': RED_BASE, 'Anuncios': '#FF8080'},
+                        labels={'tipo': 'Tipo De Noticia', 'cantidad': 'Cantidad'},
+                    )
+                    fig_tipo.update_traces(
+                        textinfo='percent+label',
+                        textposition='outside',
+                        hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>',
+                    )
+                    fig_tipo = aplicar_tema_oscuro_transparente(fig_tipo)
+                    st.plotly_chart(fig_tipo, use_container_width=True)
+                else:
+                    st.info("No hay noticias clasificadas por tipo.")
 
             # Gráfico Matplotlib: Línea temporal histórica (evolución acumulada)
             st.markdown("### 📈 Línea Temporal Histórica de Publicaciones")

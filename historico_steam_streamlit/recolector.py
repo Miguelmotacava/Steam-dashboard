@@ -12,7 +12,8 @@ if not STEAM_API_KEY:
     raise SystemExit("STEAM_API_KEY no definido en el entorno.")
 
 URL_API = "https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/"
-CSV_PATH = "historial_top100.csv"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(SCRIPT_DIR, "historial_top100.csv")
 
 
 def main():

@@ -125,8 +125,9 @@ def render_jugador():
                         orientation='h',
                         title='🏆 Top 10 Juegos por Horas',
                         color_discrete_sequence=[RED_BASE],
-                        labels={'horas': 'Horas Jugadas (Horas)', 'name': 'Videojuego'},
+                        labels={'horas': 'Tiempo Invertido (Horas)', 'name': 'Videojuego'},
                     )
+                    fig_bar.update_traces(hovertemplate='<b>%{y}</b><br>Tiempo Invertido: %{x:.1f} Horas<extra></extra>')
                     st.plotly_chart(
                         aplicar_tema_oscuro_transparente(fig_bar),
                         use_container_width=True,
@@ -151,6 +152,7 @@ def render_jugador():
                             line_close=True,
                             title='🕸️ ADN por Géneros',
                             color_discrete_sequence=[RED_BASE],
+                            range_r=[0, 100],
                             labels={
                                 'porcentaje': 'Porcentaje De Horas (%)',
                                 'genero': 'Género',
@@ -159,6 +161,7 @@ def render_jugador():
                         fig_radar.update_traces(
                             fill='toself',
                             fillcolor='rgba(255, 75, 75, 0.4)',
+                            hovertemplate='<b>%{theta}</b><br>Porcentaje: %{r:.1f} %<extra></extra>',
                         )
                         st.plotly_chart(
                             aplicar_tema_oscuro_transparente(fig_radar, es_radar=True),
@@ -185,8 +188,8 @@ def render_jugador():
                         )
                         fig_treemap.update_traces(
                             marker=dict(cornerradius=4),
-                            textinfo='label+value',
-                            hovertemplate='%{label}<br>Horas Jugadas (Horas): %{value}<extra></extra>',
+                            textinfo='label+value+percent parent',
+                            hovertemplate='<b>%{label}</b><br>Tiempo Invertido: %{value:.1f} Horas<br>Porcentaje: %{percentParent:.1%}<extra></extra>',
                         )
                         st.plotly_chart(
                             aplicar_tema_oscuro_transparente(fig_treemap),
@@ -207,6 +210,7 @@ def render_jugador():
                                 marker_colors=[RED_BASE, GRIS_OSCURO],
                                 textinfo='label+percent',
                                 textfont=dict(color='white'),
+                                hovertemplate='<b>%{label}</b><br>Juegos: %{value}<br>Porcentaje: %{percent}<extra></extra>',
                             )
                         ]
                     )
@@ -249,7 +253,7 @@ def render_jugador():
                         )
                         fig_actividad.update_traces(
                             customdata=df_actividad_plot['juegos_lista'],
-                            hovertemplate='<b>Año:</b> %{x}<br><b>Juegos:</b> %{y}<br><b>Títulos:</b><br>%{customdata}<extra></extra>',
+                            hovertemplate='<b>Año:</b> %{x}<br><b>Juegos Activos:</b> %{y}<br><b>Títulos:</b><br>%{customdata}<extra></extra>',
                         )
                         fig_actividad.update_layout(
                             xaxis=dict(dtick=1, tickformat='d'),

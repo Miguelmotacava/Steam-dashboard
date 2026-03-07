@@ -8,8 +8,8 @@ PALETA_ROJA = [RED_BASE, '#FF6666', '#FF8080', '#FF9999', '#FFB3B3', '#E74C3C', 
 
 
 def _ruta_historial():
-    """Ruta al CSV de historial (repo root)."""
-    return os.path.join(os.path.dirname(__file__), '..', 'historial_top100.csv')
+    """Ruta al CSV de historial (historico_steam_streamlit)."""
+    return os.path.join(os.path.dirname(__file__), '..', 'historico_steam_streamlit', 'historial_top100.csv')
 
 
 def _aplicar_tema_plotly(fig):
@@ -55,7 +55,7 @@ def _aplicar_filtro_cross(df, valor):
 
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 import plotly.graph_objects as go
-from data_api import fetch_history_price
+from data_api import fetch_history_price, fetch_dlc_list
 
 def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, datos_historicos=None):
     """Genera la gráfica conectando el día de lanzamiento real, el mínimo histórico y el día de hoy"""
@@ -103,7 +103,8 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
         line=dict(color=RED_BASE, width=3),
         text=etiquetas,
         textposition='top center',
-        name='Precio'
+        name='Precio',
+        hovertemplate='Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
     ))
 
     # Línea base para el mínimo si existe
@@ -115,7 +116,7 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
     fig.update_layout(
         title=f'📉 Evolución Real del Precio',
         yaxis_range=[0, max_p + (max_p * 0.3) + 2],
-        xaxis_title='Fecha',
+        xaxis_title='Fecha (Tiempo)',
         yaxis_title='Precio (Euros)',
         showlegend=False
     )
@@ -149,6 +150,14 @@ def render_tendencias(df_super):
     st.markdown("---")
 
     if not df_filtrado.empty:
+        # --- KPIs justo debajo de los filtros ---
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
+        kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
+        kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
+        kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
+        st.markdown("---")
+
         # --- Gráficos con cross-filtering (selección aplica filtro al resto) ---
         col_g1, col_g2 = st.columns(2)
         sel_bar, sel_treemap, sel_scatter = None, None, None
@@ -157,13 +166,15 @@ def render_tendencias(df_super):
                 df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'),
                 x='jugadores_actuales', y='nombre', orientation='h',
                 title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE],
-                labels={'jugadores_actuales': 'Jugadores Actuales (Unidades)', 'nombre': 'Videojuego'},
+                labels={'jugadores_actuales': 'Jugadores Concurrentes (Unidades)', 'nombre': 'Videojuego'},
             )
+            fig1.update_traces(hovertemplate='<b>%{y}</b><br>Jugadores: %{x:,.0f}<extra></extra>')
             evt1 = st.plotly_chart(fig1, use_container_width=True, on_select='rerun', key='bar_top10', selection_mode='points')
             sel_bar = _extraer_seleccion(evt1)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
             fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
+            fig2.update_traces(textinfo='label+value+percent parent', hovertemplate='<b>%{label}</b><br>Jugadores: %{value:,.0f}<br>Porcentaje: %{percentParent:.1%}<extra></extra>')
             evt2 = st.plotly_chart(fig2, use_container_width=True, on_select='rerun', key='treemap_gen', selection_mode='points')
             sel_treemap = _extraer_seleccion(evt2)
 
@@ -171,6 +182,7 @@ def render_tendencias(df_super):
         with col_g3:
             df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
             fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistemas', color='SO', color_discrete_map=RED_DONUT)
+            fig3.update_traces(hovertemplate='<b>%{label}</b><br>Compatibles: %{value}<extra></extra>')
             st.plotly_chart(fig3, use_container_width=True)
         with col_g4:
             df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
@@ -180,6 +192,10 @@ def render_tendencias(df_super):
                     size='jugadores_actuales', hover_name='nombre',
                     title='💎 Precio vs Calidad (Metacritic)', color='nombre',
                     labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Metacritic'},
+                )
+                fig4.update_traces(
+                    customdata=df_scat['jugadores_actuales'],
+                    hovertemplate='<b>%{hovertext}</b><br>Precio: %{x:.2f} €<br>Nota Metacritic: %{y}<br>Jugadores: %{customdata:,.0f}<extra></extra>',
                 )
                 evt4 = st.plotly_chart(fig4, use_container_width=True, on_select='rerun', key='scatter_metacritic', selection_mode='points')
                 sel_scatter = _extraer_seleccion(evt4)
@@ -191,12 +207,6 @@ def render_tendencias(df_super):
             df_filtrado = _aplicar_filtro_cross(df_filtrado, filtro_cross)
             if not df_filtrado.empty:
                 st.caption(f"🔍 Filtro activo: **{filtro_cross}** (clic en un gráfico para deseleccionar)")
-
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
-        kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
-        kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
-        kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
 
         # --- Gráficas Históricas (si existe historial) ---
         if df_historial is not None and not df_historial.empty:
@@ -221,12 +231,15 @@ def render_tendencias(df_super):
                             y='jugadores_historicos',
                             color='nombre',
                             title='📈 Evolución Por Número de Jugadores Concurrentes En El Tiempo',
-                            color_discrete_sequence=PALETA_ROJA,
+                            color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
                                 'nombre': 'Videojuego',
                             },
+                        )
+                        fig_line.update_traces(
+                            hovertemplate='<b>%{fullData.name}</b><br>Fecha: %{x|%d/%m/%Y}<br>Jugadores: %{y:,.0f}<extra></extra>',
                         )
                         fig_line = _aplicar_tema_plotly(fig_line)
                         st.plotly_chart(fig_line, use_container_width=True)
@@ -248,12 +261,15 @@ def render_tendencias(df_super):
                             y='jugadores_historicos',
                             color='genero',
                             title='📊 Evolución Por Género En El Tiempo',
-                            color_discrete_sequence=PALETA_ROJA,
+                            color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
                                 'genero': 'Género',
                             },
+                        )
+                        fig_area.update_traces(
+                            hovertemplate='<b>%{fullData.name}</b><br>Fecha: %{x|%d/%m/%Y}<br>Jugadores: %{y:,.0f}<extra></extra>',
                         )
                         fig_area = _aplicar_tema_plotly(fig_area)
                         st.plotly_chart(fig_area, use_container_width=True)
@@ -287,6 +303,42 @@ def render_tendencias(df_super):
                 except Exception as e:
                     import traceback
                     st.error(f"Error generando gráfico: {traceback.format_exc()}")
+
+            # Listado y gráfico de DLCs/expansiones/cosméticos
+            if datos_juego['dlc_count'] > 0:
+                st.markdown("#### 🧩 Expansiones y Cosméticos por Fecha y Precio")
+                with st.spinner("Cargando listado de DLCs..."):
+                    dlcs = fetch_dlc_list(datos_juego['appid'])
+                if dlcs:
+                    df_dlc = pd.DataFrame(dlcs)
+                    df_dlc['fecha_dt'] = pd.to_datetime(df_dlc['fecha_salida'], errors='coerce')
+                    df_dlc = df_dlc.dropna(subset=['fecha_dt']).sort_values('fecha_dt')
+                    if not df_dlc.empty:
+                        fig_dlc = px.scatter(
+                            df_dlc,
+                            x='fecha_dt',
+                            y='precio_eur',
+                            hover_name='nombre',
+                            title='📅 Expansiones y Cosméticos: Fecha de Salida vs Precio',
+                            color_discrete_sequence=[RED_BASE],
+                            labels={
+                                'fecha_dt': 'Fecha De Salida (Tiempo)',
+                                'precio_eur': 'Precio (Euros)',
+                                'nombre': 'Nombre',
+                            },
+                        )
+                        fig_dlc.update_traces(
+                            marker=dict(size=12),
+                            hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
+                        )
+                        fig_dlc = _aplicar_tema_plotly(fig_dlc)
+                        st.plotly_chart(fig_dlc, use_container_width=True)
+                    st.markdown("**Listado:**")
+                    for d in dlcs:
+                        precio_str = "Gratis" if not d.get('precio_eur') or d['precio_eur'] == 0 else f"{d['precio_eur']:.2f} €"
+                        st.markdown(f"- **{d['nombre']}** — {d.get('fecha_salida', 'N/D')} — {precio_str}")
+                else:
+                    st.caption("No se pudieron cargar los detalles de los DLCs.")
         except Exception as e:
             import traceback
             st.error(f"Error procesando análisis de negocio: {traceback.format_exc()}")
@@ -300,6 +352,7 @@ def render_tendencias(df_super):
             axis=1
         )
         df_mostrar = pd.DataFrame({
+            'Ranking': df_tabla['ranking'].astype(int),
             'Nombre': df_tabla['nombre'],
             'Jugadores Actuales': df_tabla['jugadores_actuales'].apply(lambda x: f"{int(x):,}".replace(',', '.')),
             'Precio Actual': df_tabla['precio_eur'].apply(lambda x: "Gratis" if pd.isna(x) or x == 0 else f"{x:.2f} €"),

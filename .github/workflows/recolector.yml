@@ -26,16 +26,16 @@ jobs:
       - name: Run recolector
         env:
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
-        run: python recolector.py
+        run: python historico_steam_streamlit/recolector.py
 
       - name: Commit and push CSV
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add historial_top100.csv
+          git add historico_steam_streamlit/historial_top100.csv
           if git diff --staged --quiet; then
             echo "No hay cambios en el CSV."
           else
-            git commit -m "chore: actualizar historial_top100.csv [automated]"
+            git commit -m "chore: actualizar historico_steam_streamlit/historial_top100.csv [automated]"
             git push
           fi

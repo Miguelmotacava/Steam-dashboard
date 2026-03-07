@@ -36,7 +36,7 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 - **Cross-filtering:** selecciona un juego o género en cualquier gráfico para filtrar el resto
 - KPIs: jugadores totales, precio medio, juegos gratuitos
 - Gráficos interactivos: barras (Top 10), treemap (géneros), donut (SO), scatter (precio vs Metacritic)
-- **Evolución histórica** de jugadores (requiere `historial_top100.csv` del recolector)
+- **Evolución histórica** de jugadores (requiere `historico_steam_streamlit/historial_top100.csv` del recolector)
 - **Análisis de Precio Histórico:** precio mínimo (CheapShark), DLCs, descuentos
 - Tabla resumen con todos los juegos filtrados
 
@@ -132,8 +132,9 @@ proof/
 │   ├── requirements.txt
 │   └── .streamlit/
 │       └── secrets.toml.example
-├── recolector.py             # Script de recolección Top 100
-├── historial_top100.csv       # Datos históricos (generado por workflow)
+├── historico_steam_streamlit/
+│   ├── recolector.py         # Script de recolección Top 100
+│   └── historial_top100.csv  # Datos históricos (generado por workflow)
 ├── .github/workflows/
 │   └── recolector.yml        # Ejecución cada 10 min
 ├── run_app.ps1               # Script de ejecución (Windows)

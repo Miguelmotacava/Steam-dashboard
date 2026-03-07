@@ -69,6 +69,7 @@ def fetch_global_steam_data(limite):
     df_jugadores = pd.DataFrame(top_juegos)
     if df_jugadores.empty: return pd.DataFrame()
     df_jugadores.rename(columns={'concurrent_in_game': 'jugadores_actuales'}, inplace=True)
+    df_jugadores['ranking'] = range(1, len(df_jugadores) + 1)
     
     datos_tienda = []
     my_bar = st.progress(0, text=f"⏳ Descargando datos ultrarrápidos de {limite} juegos...")
@@ -147,9 +148,44 @@ def fetch_app_details(appid):
         pass
     return {'header_image': '', 'fecha_salida': ''}
 
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_dlc_list(appid):
+    """Obtiene lista de DLCs/expansiones/cosméticos con nombre, fecha de salida y precio."""
+    try:
+        url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
+        res = requests.get(url, timeout=5).json()
+        if not res or str(appid) not in res or not res[str(appid)].get('success'):
+            return []
+        data = res[str(appid)]['data']
+        dlc_appids = data.get('dlc', [])
+        if not dlc_appids:
+            return []
+        resultados = []
+        for dlc_id in dlc_appids:
+            try:
+                url_dlc = f"https://store.steampowered.com/api/appdetails?appids={dlc_id}&cc=es"
+                r = requests.get(url_dlc, timeout=5).json()
+                time.sleep(0.5)
+                if r and str(dlc_id) in r and r[str(dlc_id)].get('success'):
+                    d = r[str(dlc_id)]['data']
+                    po = d.get('price_overview', {})
+                    precio = po.get('final', 0) / 100 if po else 0.0
+                    fecha = d.get('release_date', {}).get('date', '')
+                    resultados.append({
+                        'nombre': d.get('name', 'Desconocido'),
+                        'fecha_salida': fecha,
+                        'precio_eur': precio,
+                    })
+            except Exception:
+                pass
+        return resultados
+    except Exception:
+        return []
+
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):
-    url_news = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count=100&format=json"
+    url_news = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count=2000&format=json"
     try:
         noticias = requests.get(url_news).json().get('appnews', {}).get('newsitems', [])
         df_noticias = pd.DataFrame(noticias)
