@@ -78,7 +78,7 @@ def render_jugador(df_super=None):
         col_j_input, col_j_btn = st.columns([4, 1])
         with col_j_input:
             input_perfil = st.text_input(
-                "🔍 SteamID o URL (ej: https://steamcommunity.com/profiles/...):"
+                "🔍 SteamID o URL (ej: https://steamcommunity.com/id/evilafm):"
             )
         with col_j_btn:
             st.markdown("<br>", unsafe_allow_html=True)
