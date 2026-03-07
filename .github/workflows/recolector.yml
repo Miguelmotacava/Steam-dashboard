@@ -1,8 +1,12 @@
+# Recolector Steam Top 100
+# NOTA: Los workflows programados solo corren en la rama por defecto (main).
+# GitHub puede retrasar/omitir ejecuciones en horas punta (:00). Evitamos :00 usando minutos 7,17,27,37,47,57.
+# Si el repo no tiene actividad en 60 días, GitHub desactiva el schedule automáticamente.
 name: Recolector Steam Top 100
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 
 jobs:
