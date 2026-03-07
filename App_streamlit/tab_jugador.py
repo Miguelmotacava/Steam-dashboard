@@ -220,55 +220,71 @@ def render_jugador():
                         use_container_width=True,
                     )
 
-                # --- FILA: Historial de Actividad (Juegos Activos por Año) ---
-                if 'rtime_last_played' in df_juegos.columns:
-                    df_actividad = df_juegos[df_juegos['rtime_last_played'] > 0].copy()
-                    if not df_actividad.empty:
-                        df_actividad['fecha_ultima'] = pd.to_datetime(
-                            df_actividad['rtime_last_played'], unit='s'
+                # --- FILA: Hábitos de Juego | Ecosistema de Hardware ---
+                col_habitos, col_hardware = st.columns(2)
+
+                with col_habitos:
+                    df_compromiso = df_juegos.copy()
+                    df_compromiso['horas'] = df_compromiso['playtime_forever'] / 60
+                    bins = [0, 2, 20, 100, float('inf')]
+                    etiquetas = ['Probados (< 2h)', 'Casual (2-20h)', 'Completistas (20-100h)', 'Obsesiones (> 100h)']
+                    df_compromiso['categoria'] = pd.cut(
+                        df_compromiso['horas'],
+                        bins=bins,
+                        labels=etiquetas,
+                        include_lowest=True,
+                    )
+                    conteo_compromiso = (
+                        df_compromiso['categoria']
+                        .value_counts()
+                        .reindex(etiquetas, fill_value=0)
+                        .reset_index()
+                    )
+                    conteo_compromiso.columns = ['categoria', 'cantidad']
+                    fig_compromiso = px.bar(
+                        conteo_compromiso,
+                        x='cantidad',
+                        y='categoria',
+                        orientation='h',
+                        title='Hábitos De Juego (Nivel De Compromiso)',
+                        color_discrete_sequence=[RED_BASE],
+                        labels={
+                            'cantidad': 'Número De Juegos (Unidades)',
+                            'categoria': 'Categoría De Dedicación (Nivel)',
+                        },
+                    )
+                    fig_compromiso.update_traces(
+                        hovertemplate='<b>%{y}</b><br>Número De Juegos: %{x}<extra></extra>',
+                    )
+                    st.plotly_chart(
+                        aplicar_tema_oscuro_transparente(fig_compromiso),
+                        use_container_width=True,
+                    )
+
+                with col_hardware:
+                    h_windows = df_juegos['playtime_windows_forever'].sum() / 60 if 'playtime_windows_forever' in df_juegos.columns else 0
+                    h_mac = df_juegos['playtime_mac_forever'].sum() / 60 if 'playtime_mac_forever' in df_juegos.columns else 0
+                    h_linux = df_juegos['playtime_linux_forever'].sum() / 60 if 'playtime_linux_forever' in df_juegos.columns else 0
+                    if h_windows + h_mac + h_linux > 0:
+                        fig_hardware = go.Figure(
+                            data=[
+                                go.Pie(
+                                    labels=['Windows', 'MacOS', 'Linux (Steam Deck)'],
+                                    values=[h_windows, h_mac, h_linux],
+                                    hole=0.5,
+                                    marker_colors=[RED_BASE, '#FF8080', '#FFB3B3'],
+                                    textinfo='label+percent',
+                                    textfont=dict(color='white'),
+                                    hovertemplate='<b>%{label}</b><br>Tiempo: %{value:.1f} Horas<br>Porcentaje: %{percent}<extra></extra>',
+                                )
+                            ]
                         )
-                        df_actividad['año'] = df_actividad['fecha_ultima'].dt.year.astype(int)
-                        juegos_por_año = (
-                            df_actividad.groupby('año')['name']
-                            .apply(lambda x: '<br>'.join(x.astype(str)))
-                            .reset_index()
-                        )
-                        conteo_por_año = (
-                            df_actividad.groupby('año').size().reset_index(name='juegos')
-                        )
-                        df_actividad_plot = conteo_por_año.merge(
-                            juegos_por_año.rename(columns={'name': 'juegos_lista'}),
-                            on='año',
-                        )
-                        fig_actividad = px.bar(
-                            df_actividad_plot,
-                            x='año',
-                            y='juegos',
-                            title='📅 Historial de Actividad (Juegos Activos por Año)',
-                            color_discrete_sequence=[RED_BASE],
-                            labels={
-                                'año': 'Año De Última Partida (Años)',
-                                'juegos': 'Número De Juegos (Unidades)',
-                            },
-                        )
-                        fig_actividad.update_traces(
-                            customdata=df_actividad_plot['juegos_lista'],
-                            hovertemplate='<b>Año:</b> %{x}<br><b>Juegos Activos:</b> %{y}<br><b>Títulos:</b><br>%{customdata}<extra></extra>',
-                        )
-                        fig_actividad.update_layout(
-                            xaxis=dict(dtick=1, tickformat='d'),
-                            yaxis=dict(dtick=1, tickformat='d'),
-                        )
+                        fig_hardware.update_layout(title='Ecosistema De Hardware (Tiempo Por SO)')
                         st.plotly_chart(
-                            aplicar_tema_oscuro_transparente(fig_actividad),
+                            aplicar_tema_oscuro_transparente(fig_hardware),
                             use_container_width=True,
                         )
                     else:
-                        st.info("No hay datos de última partida para mostrar el historial.")
-                else:
-                    st.caption(
-                        "ℹ️ El historial por año no está disponible (rtime_last_played "
-                        "solo se devuelve cuando consultas tu propio perfil con tu API key)."
-                    )
+                        st.info("No hay datos de tiempo por plataforma (playtime_*_forever no disponible en la API).")
         else:
             st.error("❌ Perfil no encontrado o no existe.")
