@@ -24,31 +24,39 @@ def render_noticias(df_super):
         st.markdown("---")
         if not df_news.empty:
             st.metric("Impactos Informativos", len(df_news))
+            st.subheader("Últimos Titulares")
+            for _, row in df_news.head(5).iterrows():
+                st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
+                
+            st.markdown("---")
+            st.markdown("### 📊 Análisis del Volumen Informativo")
             col_m1, col_m2 = st.columns(2)
             
             with col_m1:
                 conteo_cats = df_news['feedlabel'].value_counts().sort_values(ascending=True)
-                fig_m1, ax_m1 = plt.subplots(figsize=(4, 2.5))
+                fig_m1, ax_m1 = plt.subplots(figsize=(3, 2))
                 fig_m1.patch.set_alpha(0.0) 
                 ax_m1.patch.set_alpha(0.0)  
                 ax_m1.barh(conteo_cats.index, conteo_cats.values, color=RED_BASE)
                 ax_m1.spines['top'].set_visible(False); ax_m1.spines['right'].set_visible(False)
                 ax_m1.tick_params(colors='gray', labelsize=8)
+                ax_m1.set_xlabel('Nº Publicaciones', color='gray', fontsize=8)
                 fig_m1.tight_layout()
                 st.pyplot(fig_m1, transparent=True)
             
             with col_m2:
                 conteo_temp = df_news.groupby(df_news['fecha_dt'].dt.date).size()
-                fig_m2, ax_m2 = plt.subplots(figsize=(4, 2.5))
+                fig_m2, ax_m2 = plt.subplots(figsize=(3, 2))
                 fig_m2.patch.set_alpha(0.0)
                 ax_m2.patch.set_alpha(0.0)
-                ax_m2.plot(conteo_temp.index, conteo_temp.values, color=RED_BASE, marker='o')
+                ax_m2.plot(conteo_temp.index, conteo_temp.values, color=RED_BASE, marker='o', markersize=4)
+                
+                max_val = conteo_temp.max() if not conteo_temp.empty else 10
+                ax_m2.set_ylim(0, max_val + (max_val * 0.2))
+                
                 ax_m2.spines['top'].set_visible(False); ax_m2.spines['right'].set_visible(False)
                 ax_m2.tick_params(colors='gray', rotation=30, labelsize=8)
+                ax_m2.set_ylabel('Nº Publicaciones', color='gray', fontsize=8)
                 fig_m2.tight_layout()
                 st.pyplot(fig_m2, transparent=True)
-                
-            st.subheader("Últimos Titulares")
-            for _, row in df_news.head(5).iterrows():
-                st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
         else: st.info("📭 No hay noticias con los filtros aplicados.")

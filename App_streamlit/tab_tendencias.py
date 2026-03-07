@@ -5,29 +5,71 @@ import plotly.express as px
 RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 
-def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida):
-    """Genera la gráfica conectando el día de lanzamiento real con el día de hoy"""
+import plotly.graph_objects as go
+from data_api import obtener_precio_historico
+
+def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, datos_historicos=None):
+    """Genera la gráfica conectando el día de lanzamiento real, el mínimo histórico y el día de hoy"""
     hoy = pd.Timestamp.today().strftime('%Y-%m-%d')
-    
-    # Si la fecha de salida falla, ponemos 'Lanzamiento' como texto genérico
-    try:
-        inicio = pd.to_datetime(fecha_salida).strftime('%Y-%m-%d')
-    except:
-        inicio = "Día de Lanzamiento"
+    try: inicio = pd.to_datetime(fecha_salida).strftime('%Y-%m-%d')
+    except: inicio = (pd.Timestamp.today() - pd.Timedelta(days=365)).strftime('%Y-%m-%d')
+
+    fechas = [hoy]
+    precios = [precio_fin]
+    etiquetas = [f"Hoy: {precio_fin:.2f}€"]
+
+    if datos_historicos and datos_historicos.get('fecha_min_historico'):
+        fecha_min = datos_historicos['fecha_min_historico']
+        precio_min = datos_historicos['precio_min_historico']
+        
+        # Para evitar problemas de X asimétricas si inicio > fecha_min
+        if pd.to_datetime(inicio) > pd.to_datetime(fecha_min):
+            inicio = (pd.to_datetime(fecha_min) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
+        fechas.insert(0, fecha_min)
+        precios.insert(0, precio_min)
+        etiquetas.insert(0, f"Mínimo Histórico: {precio_min:.2f}€")
+
+    if datos_historicos and datos_historicos.get('precio_retail') and abs(precio_ini) < 0.01 and precio_fin > 0.01:
+        precio_ini = datos_historicos['precio_retail']
+
+    # Mantenemos inicial como punto de partida si difiere del primer punto (o si solo tenemos 1 punto)
+    if len(fechas) < 2 or (precio_ini > 0 and abs(precio_ini - precios[0]) > 0.01):
+        fechas.insert(0, inicio)
+        precios.insert(0, precio_ini)
+        etiquetas.insert(0, f"Precio Base: {precio_ini:.2f}€")
 
     df_hist = pd.DataFrame({
-        'Momento': [inicio, hoy],
-        'Precio': [precio_ini, precio_fin],
-        'Etiqueta': ['Salida', 'Hoy']
+        'Momento': pd.to_datetime(fechas),
+        'Precio': precios,
+        'Etiqueta': etiquetas
     })
     
-    fig = px.line(df_hist, x='Momento', y='Precio', title=f'📉 Evolución Real del Precio', 
-                  markers=True, text='Etiqueta', labels={'Precio': 'Euros (€)', 'Momento': 'Fechas'}, 
-                  color_discrete_sequence=[RED_BASE])
-    fig.update_traces(textposition="top center")
+    fig = go.Figure()
     
-    max_p = max(precio_ini, precio_fin)
-    fig.update_layout(yaxis_range=[0, max_p + (max_p * 0.2) + 5])
+    fig.add_trace(go.Scatter(
+        x=df_hist['Momento'], y=df_hist['Precio'],
+        mode='lines+markers+text',
+        marker=dict(size=12, color=RED_BASE),
+        line=dict(color=RED_BASE, width=3),
+        text=etiquetas,
+        textposition='top center',
+        name='Precio'
+    ))
+
+    # Línea base para el mínimo si existe
+    if datos_historicos:
+        p_min = datos_historicos['precio_min_historico']
+        fig.add_hline(y=p_min, line_dash="dash", line_color="green", annotation_text=f"Mínimo histórico: {p_min:.2f}€", annotation_position="bottom right")
+    
+    max_p = max(precios) if precios else max(precio_ini, precio_fin)
+    fig.update_layout(
+        title=f'📉 Evolución Real del Precio',
+        yaxis_range=[0, max_p + (max_p * 0.3) + 2],
+        xaxis_title='Fecha', 
+        yaxis_title='Euros (€)',
+        showlegend=False
+    )
     return fig
 
 def render_tendencias(df_super):
@@ -78,11 +120,16 @@ def render_tendencias(df_super):
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
         datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
         
+        with st.spinner("🔍 Consultando historial de precios reales..."):
+            datos_historicos = obtener_precio_historico(datos_juego['appid'], juego_analisis)
+
         col_d1, col_d2 = st.columns([1, 2])
         with col_d1:
             st.markdown("<br>", unsafe_allow_html=True)
             st.metric("🧩 Expansiones y Cosméticos", int(datos_juego['dlc_count']))
             st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
             st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
+            if datos_historicos:
+                st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
         with col_d2:
-            st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida']), use_container_width=True)
+            st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida'], datos_historicos), use_container_width=True)

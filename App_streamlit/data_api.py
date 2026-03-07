@@ -60,6 +60,37 @@ def load_steam_data(limite):
     my_bar.empty()
     return pd.merge(pd.DataFrame(datos_tienda), df_jugadores, on='appid', how='inner')
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_precio_historico(appid, nombre):
+    """Consulta CheapShark para obtener el precio más bajo histórico en Steam."""
+    try:
+        url_search = f"https://www.cheapshark.com/api/1.0/games?steamAppID={appid}"
+        res = requests.get(url_search, timeout=5).json()
+        if not res or len(res) == 0: return None
+        
+        game_id = res[0].get('gameID')
+        if not game_id: return None
+        
+        url_detail = f"https://www.cheapshark.com/api/1.0/games?id={game_id}"
+        res_detail = requests.get(url_detail, timeout=5).json()
+        
+        from datetime import datetime
+        cheapest = res_detail.get('cheapestPriceEver', {})
+        precio_min = float(cheapest.get('price', 0))
+        fecha_min_ts = cheapest.get('date', 0)
+        fecha_min = datetime.fromtimestamp(fecha_min_ts).strftime('%Y-%m-%d') if fecha_min_ts else None
+        
+        deals = res_detail.get('deals', [])
+        steam_deal = next((d for d in deals if d.get('storeID') == '1'), None)
+        
+        return {
+            'precio_min_historico': precio_min,
+            'fecha_min_historico': fecha_min,
+            'precio_retail': float(steam_deal['retailPrice']) if steam_deal else None,
+            'precio_actual_cs': float(steam_deal['price']) if steam_deal else None,
+        }
+    except: return None
+
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):
     url_news = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count=100&format=json"
@@ -86,7 +117,7 @@ def load_player_profile(steamid):
     if 'playtime_forever' not in df_juegos.columns or df_juegos.empty: 
         return perfil[0], pd.DataFrame(), pd.DataFrame()
         
-    df_jugados = df_juegos[df_juegos['playtime_forever'] > 0].copy()
+    df_jugados = df_juegos.copy() # Eliminado el filtro '> 0' para que usuarios con "0 horas" no rompan la app
     top_15 = df_jugados.nlargest(15, 'playtime_forever')
     generos_jugador = []
     
