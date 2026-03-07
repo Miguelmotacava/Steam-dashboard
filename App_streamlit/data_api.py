@@ -258,3 +258,44 @@ def fetch_user_profile(steamid):
         my_bar.progress((i + 1) / len(top_15), text="⏳ Extrayendo géneros de tu biblioteca...")
     my_bar.empty()
     return perfil[0], df_juegos, pd.DataFrame(generos_jugador)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_player_achievements(steamid, appid):
+    """
+    Obtiene logros del jugador para un juego y sus rarezas globales.
+    Retorna lista de dicts: name, description, unlocktime, rarity (%), achieved.
+    """
+    steam_api_key = get_api_key()
+    if not steam_api_key:
+        return []
+    try:
+        url_ach = f"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key={steam_api_key}&steamid={steamid}&appid={appid}&l=spanish"
+        res_ach = requests.get(url_ach, timeout=10).json()
+        player_ach = res_ach.get('playerstats', {}).get('achievements', [])
+        if not player_ach:
+            return []
+
+        url_global = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}"
+        res_global = requests.get(url_global, timeout=10).json()
+        global_pct = {}
+        for a in res_global.get('achievementpercentages', {}).get('achievements', []):
+            global_pct[a.get('name', '')] = float(a.get('percent', 50))
+
+        resultados = []
+        for i, a in enumerate(player_ach):
+            apiname = a.get('apiname', '')
+            achieved = a.get('achieved', 0) == 1
+            rarity = global_pct.get(apiname, 50.0)
+            unlocktime = a.get('unlocktime', 0) if achieved else None
+            resultados.append({
+                'name': a.get('name', f'Logro {i+1}'),
+                'description': a.get('description', ''),
+                'unlocktime': unlocktime,
+                'rarity': rarity,
+                'achieved': achieved,
+                'orden': i + 1,
+            })
+        return resultados
+    except Exception:
+        return []
