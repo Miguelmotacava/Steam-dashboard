@@ -306,7 +306,7 @@ def render_tendencias(df_super):
                                     type='buttons',
                                     showactive=False,
                                     y=-0.52,
-                                    x=0.5,
+                                    x=0.85,
                                     xanchor='center',
                                     buttons=[
                                         dict(label='▶ Play', method='animate', args=[None, dict(
@@ -322,7 +322,8 @@ def render_tendencias(df_super):
                                 dict(
                                     active=0,
                                     y=-0.18,
-                                    len=0.9,
+                                    x=0.5,
+                                    len=0.85,
                                     xanchor='center',
                                     pad=dict(b=15, t=0),
                                     currentvalue=dict(prefix='Fecha: ', visible=True, xanchor='center'),
@@ -421,7 +422,7 @@ def render_tendencias(df_super):
                                         type='buttons',
                                         showactive=False,
                                         y=-0.52,
-                                        x=0.5,
+                                        x=0.85,
                                         xanchor='center',
                                         buttons=[
                                             dict(label='▶ Play', method='animate', args=[None, dict(
@@ -437,7 +438,8 @@ def render_tendencias(df_super):
                                     dict(
                                         active=0,
                                         y=-0.18,
-                                        len=0.9,
+                                        x=0.5,
+                                        len=0.85,
                                         xanchor='center',
                                         pad=dict(b=15, t=0),
                                         currentvalue=dict(prefix='Fecha: ', visible=True, xanchor='center'),
