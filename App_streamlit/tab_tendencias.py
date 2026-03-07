@@ -26,6 +26,33 @@ def _aplicar_tema_plotly(fig):
     return fig
 
 
+def _extraer_seleccion(event):
+    """Extrae el valor seleccionado de un evento Plotly (nombre o género)."""
+    try:
+        if not event or not hasattr(event, 'selection'):
+            return None
+        sel = event.selection
+        pts = getattr(sel, 'points', None) or (sel.get('points') if hasattr(sel, 'get') else None)
+        if not pts:
+            return None
+        pt = pts[0] if isinstance(pts, list) else pts
+        if hasattr(pt, 'get'):
+            return pt.get('label') or pt.get('y') or pt.get('hovertext') or pt.get('legendgroup') or pt.get('id')
+        return getattr(pt, 'label', None) or getattr(pt, 'y', None)
+    except (IndexError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def _aplicar_filtro_cross(df, valor):
+    """Aplica filtro cruzado por nombre o género."""
+    if not valor or not isinstance(valor, str) or df.empty:
+        return df
+    df_nombre = df[df['nombre'] == valor]
+    if not df_nombre.empty:
+        return df_nombre
+    return df[df['generos'].str.contains(valor, na=False)]
+
+
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 import plotly.graph_objects as go
 from data_api import fetch_history_price
@@ -122,13 +149,9 @@ def render_tendencias(df_super):
     st.markdown("---")
 
     if not df_filtrado.empty:
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
-        kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
-        kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
-        kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
-
+        # --- Gráficos con cross-filtering (selección aplica filtro al resto) ---
         col_g1, col_g2 = st.columns(2)
+        sel_bar, sel_treemap, sel_scatter = None, None, None
         with col_g1:
             fig1 = px.bar(
                 df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'),
@@ -136,11 +159,13 @@ def render_tendencias(df_super):
                 title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE],
                 labels={'jugadores_actuales': 'Jugadores Actuales (Unidades)', 'nombre': 'Videojuego'},
             )
-            st.plotly_chart(fig1, use_container_width=True)
+            evt1 = st.plotly_chart(fig1, use_container_width=True, on_select='rerun', key='bar_top10', selection_mode='points')
+            sel_bar = _extraer_seleccion(evt1)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
             fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
-            st.plotly_chart(fig2, use_container_width=True)
+            evt2 = st.plotly_chart(fig2, use_container_width=True, on_select='rerun', key='treemap_gen', selection_mode='points')
+            sel_treemap = _extraer_seleccion(evt2)
 
         col_g3, col_g4 = st.columns(2)
         with col_g3:
@@ -156,7 +181,22 @@ def render_tendencias(df_super):
                     title='💎 Precio vs Calidad (Metacritic)', color='nombre',
                     labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Metacritic'},
                 )
-                st.plotly_chart(fig4, use_container_width=True)
+                evt4 = st.plotly_chart(fig4, use_container_width=True, on_select='rerun', key='scatter_metacritic', selection_mode='points')
+                sel_scatter = _extraer_seleccion(evt4)
+            else:
+                st.info("No hay juegos con nota Metacritic para mostrar.")
+
+        filtro_cross = sel_scatter or sel_bar or sel_treemap
+        if filtro_cross:
+            df_filtrado = _aplicar_filtro_cross(df_filtrado, filtro_cross)
+            if not df_filtrado.empty:
+                st.caption(f"🔍 Filtro activo: **{filtro_cross}** (clic en un gráfico para deseleccionar)")
+
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
+        kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
+        kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
+        kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
 
         # --- Gráficas Históricas (si existe historial) ---
         if df_historial is not None and not df_historial.empty:
@@ -219,6 +259,36 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_area, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
+
+        # --- Evolución Temporal Top 10 (encima de Análisis de Precio) ---
+        st.markdown("### 📈 Evolución Temporal del Top 10 (Jugadores Concurrentes)")
+        if df_historial is not None and not df_historial.empty:
+            try:
+                top10_actual = df_filtrado.nlargest(10, 'jugadores_actuales')[['appid', 'nombre']].drop_duplicates()
+                df_hist_filt = df_historial[df_historial['appid'].isin(top10_actual['appid'])].copy()
+                df_hist_filt = df_hist_filt.merge(top10_actual, on='appid', how='inner')
+                if not df_hist_filt.empty:
+                    fig_evol_top10 = px.line(
+                        df_hist_filt,
+                        x='Fecha',
+                        y='jugadores_historicos',
+                        color='nombre',
+                        title='Evolución De Jugadores Concurrentes (Top 10 Actual)',
+                        color_discrete_sequence=PALETA_ROJA,
+                        labels={
+                            'Fecha': 'Fecha De Registro (Tiempo)',
+                            'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                            'nombre': 'Videojuego',
+                        },
+                    )
+                    fig_evol_top10 = _aplicar_tema_plotly(fig_evol_top10)
+                    st.plotly_chart(fig_evol_top10, use_container_width=True)
+                else:
+                    st.info("No hay datos históricos para el Top 10 actual.")
+            except Exception:
+                st.info("No se pudo cargar el historial. Ejecuta el recolector para generar datos.")
+        else:
+            st.info("El archivo historial_top100.csv no existe. El workflow de GitHub Actions lo generará automáticamente.")
 
         st.markdown("### 🛒 Análisis de Precio Histórico")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())

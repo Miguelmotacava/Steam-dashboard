@@ -64,7 +64,15 @@ def render_noticias(df_super):
 
         st.markdown("---")
         if not df_news.empty:
-            st.metric("Impactos Informativos", len(df_news))
+            col_met1, col_met2, col_met3 = st.columns(3)
+            with col_met1:
+                st.metric("📰 Impactos Informativos", len(df_news))
+            with col_met2:
+                n_parches = len(df_news[df_news['feed_type'] == 1]) if 'feed_type' in df_news.columns else 0
+                st.metric("🛠️ Parches", n_parches)
+            with col_met3:
+                n_anuncios = len(df_news[df_news['feed_type'] == 0]) if 'feed_type' in df_news.columns else 0
+                st.metric("📢 Anuncios", n_anuncios)
 
             # --- Últimos Titulares + Widget Tarjeta [2, 1] ---
             col_titulares, col_tarjeta = st.columns([2, 1])
