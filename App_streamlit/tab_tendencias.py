@@ -134,7 +134,8 @@ def render_tendencias(df_super):
             df_historial['Fecha'] = pd.to_datetime(df_historial['Fecha'])
         except Exception:
             df_historial = None
-
+    
+    st.markdown("---")
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
     with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
