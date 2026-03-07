@@ -246,45 +246,50 @@ def render_tendencias(df_super):
                         fig_line = _aplicar_tema_plotly(fig_line)
                         st.plotly_chart(fig_line, use_container_width=True)
 
-                        # Animación 1: Carrera de Juegos (orden por ranking: quien supera, intercambia puesto)
-                        df_anim_top10 = df_line_top10.sort_values('Fecha').copy()
-                        df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
-                        df_anim_top10 = df_anim_top10.sort_values(
-                            ['Fecha', 'jugadores_historicos'],
-                            ascending=[True, False],
-                        ).reset_index(drop=True)
-                        max_jugadores = df_anim_top10['jugadores_historicos'].max()
-                        fig_anim1 = px.bar(
-                            df_anim_top10,
-                            x='jugadores_historicos',
-                            y='nombre',
-                            orientation='h',
-                            color='nombre',
-                            animation_frame='Hora_Frame',
-                            title='🏃 Carrera De Jugadores Concurrentes (Animación En Vivo)',
-                            color_discrete_sequence=px.colors.qualitative.Vivid,
-                            labels={
-                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'nombre': 'Videojuego',
-                                'Hora_Frame': 'Fecha De Registro (Tiempo)',
-                            },
-                        )
-                        fig_anim1 = _aplicar_tema_plotly(fig_anim1)
-                        fig_anim1.update_traces(
-                            hovertemplate='<b>Videojuego</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>',
-                        )
-                        fig_anim1.update_layout(
-                            xaxis_range=[0, max_jugadores * 1.1],
-                            margin=dict(b=150),
-                        )
-                        fig_anim1.update_xaxes(title_standoff=30)
-                        if fig_anim1.layout.updatemenus:
-                            fig_anim1.layout.updatemenus[0].y = -0.5
-                        if fig_anim1.layout.sliders:
-                            fig_anim1.layout.sliders[0].y = -0.5
-                        st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
+
+                # Animación 1: Carrera de Juegos (ancho completo; en cada frame el eje Y ordenado por ranking)
+                if not df_line_top10.empty:
+                    df_anim_top10 = df_line_top10.sort_values('Fecha').copy()
+                    df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
+                    # Por cada instante: ordenar por jugadores descendente para que quien lidera suba y quien no baje
+                    df_anim_top10 = (
+                        df_anim_top10.groupby('Hora_Frame', sort=False)
+                        .apply(lambda g: g.sort_values('jugadores_historicos', ascending=False))
+                        .reset_index(drop=True)
+                    )
+                    max_jugadores = df_anim_top10['jugadores_historicos'].max()
+                    fig_anim1 = px.bar(
+                        df_anim_top10,
+                        x='jugadores_historicos',
+                        y='nombre',
+                        orientation='h',
+                        color='nombre',
+                        animation_frame='Hora_Frame',
+                        title='🏃 Carrera De Jugadores Concurrentes (Animación En Vivo)',
+                        color_discrete_sequence=px.colors.qualitative.Vivid,
+                        labels={
+                            'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                            'nombre': 'Videojuego',
+                            'Hora_Frame': 'Fecha De Registro (Tiempo)',
+                        },
+                    )
+                    fig_anim1 = _aplicar_tema_plotly(fig_anim1)
+                    fig_anim1.update_traces(
+                        hovertemplate='<b>Videojuego</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>',
+                    )
+                    fig_anim1.update_layout(
+                        xaxis_range=[0, max_jugadores * 1.1],
+                        margin=dict(b=150),
+                        height=500,
+                    )
+                    fig_anim1.update_xaxes(title_standoff=30)
+                    if fig_anim1.layout.updatemenus:
+                        fig_anim1.layout.updatemenus[0].y = -0.5
+                    if fig_anim1.layout.sliders:
+                        fig_anim1.layout.sliders[0].y = -0.5
+                    st.plotly_chart(fig_anim1, use_container_width=True)
 
                 with col_h2:
                     df_gen_hist = (
@@ -314,8 +319,19 @@ def render_tendencias(df_super):
                         )
                         fig_area = _aplicar_tema_plotly(fig_area)
                         st.plotly_chart(fig_area, use_container_width=True)
+                    else:
+                        st.info("No hay datos históricos por género.")
 
-                        # Animación 2: Evolución de Categorías
+                # Animación 2: Evolución de Categorías (ancho completo)
+                if not df_hist_merge.empty:
+                    df_gen_hist = (
+                        df_hist_merge.assign(genero=df_hist_merge['generos'].str.split(', '))
+                        .explode('genero')
+                        .groupby(['Fecha', 'genero'])['jugadores_historicos']
+                        .sum()
+                        .reset_index()
+                    )
+                    if not df_gen_hist.empty:
                         df_anim_gen = df_gen_hist.sort_values('Fecha').copy()
                         df_anim_gen['Hora_Frame'] = pd.to_datetime(df_anim_gen['Fecha']).dt.strftime('%d/%m %H:%M')
                         max_jugadores_categoria = df_anim_gen['jugadores_historicos'].max()
@@ -340,6 +356,7 @@ def render_tendencias(df_super):
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
                             margin=dict(b=150),
+                            height=500,
                         )
                         fig_anim2.update_xaxes(title_standoff=30)
                         if fig_anim2.layout.updatemenus:
@@ -347,8 +364,6 @@ def render_tendencias(df_super):
                         if fig_anim2.layout.sliders:
                             fig_anim2.layout.sliders[0].y = -0.5
                         st.plotly_chart(fig_anim2, use_container_width=True)
-                    else:
-                        st.info("No hay datos históricos por género.")
         st.markdown("---")
         st.markdown("### 🛒 Análisis de Precio Histórico")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
