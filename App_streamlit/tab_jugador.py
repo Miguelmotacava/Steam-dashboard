@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from data_api import fetch_user_profile, obtener_steam_id_real
@@ -123,6 +124,7 @@ def render_jugador():
                         orientation='h',
                         title='🏆 Top 10 Juegos por Horas',
                         color_discrete_sequence=[RED_BASE],
+                        labels={'horas': 'Horas Jugadas (Horas)', 'name': 'Videojuego'},
                     )
                     st.plotly_chart(
                         aplicar_tema_oscuro_transparente(fig_bar),
@@ -144,6 +146,7 @@ def render_jugador():
                             line_close=True,
                             title='🕸️ ADN por Géneros',
                             color_discrete_sequence=[RED_BASE],
+                            labels={'horas': 'Horas (Horas)', 'genero': 'Género'},
                         )
                         fig_radar.update_traces(
                             fill='toself',
@@ -158,28 +161,31 @@ def render_jugador():
 
                 st.markdown("---")
 
-                # --- FILA DE GRÁFICOS 2: Scatter | Donut Backlog ---
+                # --- FILA DE GRÁFICOS 2: Treemap | Donut Backlog ---
                 col_g3, col_g4 = st.columns(2)
                 with col_g3:
-                    df_scatter = df_juegos.copy()
-                    df_scatter['horas'] = df_scatter['playtime_forever'] / 60
-                    df_scatter_activos = df_scatter[df_scatter['horas'] > 0]
-                    if not df_scatter_activos.empty:
-                        fig_scatter = px.scatter(
-                            df_scatter_activos,
-                            x='horas',
-                            y='name',
-                            size='horas',
-                            title='📍 Distribución de Tiempo por Juego',
+                    df_jugados = df_juegos.copy()
+                    df_jugados['horas'] = df_jugados['playtime_forever'] / 60
+                    df_treemap = df_jugados[df_jugados['horas'] >= 1]
+                    if not df_treemap.empty:
+                        fig_treemap = px.treemap(
+                            df_treemap,
+                            path=[px.Constant("Biblioteca"), 'name'],
+                            values='horas',
+                            title='📍 Distribución del Tiempo',
                             color_discrete_sequence=[RED_BASE],
                         )
-                        fig_scatter.update_traces(marker=dict(color=RED_BASE))
+                        fig_treemap.update_traces(
+                            marker=dict(cornerradius=4),
+                            textinfo='label+value',
+                            hovertemplate='%{label}<br>Horas Jugadas (Horas): %{value}<extra></extra>',
+                        )
                         st.plotly_chart(
-                            aplicar_tema_oscuro_transparente(fig_scatter),
+                            aplicar_tema_oscuro_transparente(fig_treemap),
                             use_container_width=True,
                         )
                     else:
-                        st.info("No hay juegos con horas jugadas para mostrar.")
+                        st.info("No hay juegos con más de 1 hora jugada para mostrar.")
 
                 with col_g4:
                     juegos_jugados = len(df_juegos[df_juegos['playtime_forever'] > 0])
@@ -200,6 +206,40 @@ def render_jugador():
                     st.plotly_chart(
                         aplicar_tema_oscuro_transparente(fig_donut),
                         use_container_width=True,
+                    )
+
+                # --- FILA: Historial de Actividad (Juegos Activos por Año) ---
+                if 'rtime_last_played' in df_juegos.columns:
+                    df_actividad = df_juegos[df_juegos['rtime_last_played'] > 0].copy()
+                    if not df_actividad.empty:
+                        df_actividad['fecha_ultima'] = pd.to_datetime(
+                            df_actividad['rtime_last_played'], unit='s'
+                        )
+                        df_actividad['año'] = df_actividad['fecha_ultima'].dt.year
+                        conteo_por_año = (
+                            df_actividad.groupby('año').size().reset_index(name='juegos')
+                        )
+                        fig_actividad = px.bar(
+                            conteo_por_año,
+                            x='año',
+                            y='juegos',
+                            title='📅 Historial de Actividad (Juegos Activos por Año)',
+                            color_discrete_sequence=[RED_BASE],
+                            labels={
+                                'año': 'Año De Última Partida (Años)',
+                                'juegos': 'Número De Juegos (Unidades)',
+                            },
+                        )
+                        st.plotly_chart(
+                            aplicar_tema_oscuro_transparente(fig_actividad),
+                            use_container_width=True,
+                        )
+                    else:
+                        st.info("No hay datos de última partida para mostrar el historial.")
+                else:
+                    st.caption(
+                        "ℹ️ El historial por año no está disponible (rtime_last_played "
+                        "solo se devuelve cuando consultas tu propio perfil con tu API key)."
                     )
         else:
             st.error("❌ Perfil no encontrado o no existe.")
