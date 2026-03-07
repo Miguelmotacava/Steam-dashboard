@@ -151,9 +151,8 @@ def load_all_apps():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_precio_historico(appid, nombre):
-    """Consulta CheapShark para obtener el precio más bajo histórico en Steam."""
+    """Consulta CheapShark para obtener el historial de precios en Steam (USD)."""
     try:
-        # Buscar el juego en CheapShark por steamAppID
         url_search = f"https://www.cheapshark.com/api/1.0/games?steamAppID={appid}"
         res = session.get(url_search, timeout=5).json()
         if not res or len(res) == 0:
@@ -163,7 +162,6 @@ def obtener_precio_historico(appid, nombre):
         if not game_id:
             return None
         
-        # Obtener detalles con precio más bajo histórico
         url_detail = f"https://www.cheapshark.com/api/1.0/games?id={game_id}"
         res_detail = session.get(url_detail, timeout=5).json()
         
@@ -172,57 +170,64 @@ def obtener_precio_historico(appid, nombre):
         fecha_min_ts = cheapest.get('date', 0)
         fecha_min = datetime.fromtimestamp(fecha_min_ts).strftime('%Y-%m-%d') if fecha_min_ts else None
         
-        # Precio actual y base en Steam (storeID=1)
         deals = res_detail.get('deals', [])
         steam_deal = next((d for d in deals if d.get('storeID') == '1'), None)
         
         return {
             'precio_min_historico': precio_min,
             'fecha_min_historico': fecha_min,
-            'precio_retail': float(steam_deal['retailPrice']) if steam_deal else None,
-            'precio_actual_cs': float(steam_deal['price']) if steam_deal else None,
+            'precio_retail_usd': float(steam_deal['retailPrice']) if steam_deal else None,
+            'precio_actual_usd': float(steam_deal['price']) if steam_deal else None,
         }
     except Exception:
         return None
 
-def generar_grafico_precio(precio_ini, precio_fin, nombre, datos_historicos=None):
-    """Genera un gráfico de evolución de precio con datos reales de CheapShark."""
+def generar_grafico_precio(precio_ini_eur, precio_fin_eur, nombre, datos_historicos=None):
+    """Genera un gráfico de evolución de precio.
+    Si hay datos de CheapShark, usa precios USD consistentes.
+    Si no, usa los precios EUR de Steam como fallback."""
     
     if datos_historicos and datos_historicos.get('fecha_min_historico'):
-        # Construir timeline con puntos reales
-        hoy = pd.Timestamp.today().strftime('%Y-%m-%d')
-        fecha_min = datos_historicos['fecha_min_historico']
+        # Usar precios USD de CheapShark para consistencia
+        precio_retail = datos_historicos.get('precio_retail_usd') or 0
+        precio_actual = datos_historicos.get('precio_actual_usd') or 0
         precio_min = datos_historicos['precio_min_historico']
+        fecha_min = datos_historicos['fecha_min_historico']
+        hoy = pd.Timestamp.today().strftime('%Y-%m-%d')
         
-        fechas = [fecha_min, hoy]
-        precios = [precio_min, precio_fin]
-        etiquetas = [
-            f"Mínimo Histórico: {precio_min:.2f}€",
-            f"Hoy: {precio_fin:.2f}€"
-        ]
+        # Construir puntos del gráfico
+        fechas = []
+        precios = []
+        etiquetas = []
+        colores_marker = []
         
-        # Si el precio base es diferente al mínimo y al actual, añadirlo antes
-        if precio_ini > 0 and abs(precio_ini - precio_min) > 0.01:
-            # Insertar el precio base como primer punto (1 día antes del mínimo)
-            fecha_base = (pd.to_datetime(fecha_min) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-            fechas.insert(0, fecha_base)
-            precios.insert(0, precio_ini)
-            etiquetas.insert(0, f"Precio Base: {precio_ini:.2f}€")
+        # Punto 1: Precio base (retail) — antes del mínimo histórico
+        if precio_retail > 0:
+            fecha_base = (pd.to_datetime(fecha_min) - pd.Timedelta(days=30)).strftime('%Y-%m-%d')
+            fechas.append(fecha_base)
+            precios.append(precio_retail)
+            etiquetas.append(f"Precio Base: ${precio_retail:.2f}")
+            colores_marker.append(RED_BASE)
         
-        df_hist = pd.DataFrame({
-            'Fecha': pd.to_datetime(fechas),
-            'Precio (€)': precios,
-            'Detalle': etiquetas
-        })
+        # Punto 2: Mínimo histórico
+        fechas.append(fecha_min)
+        precios.append(precio_min)
+        etiquetas.append(f"Mínimo Histórico: ${precio_min:.2f}")
+        colores_marker.append('green')
+        
+        # Punto 3: Precio actual
+        fechas.append(hoy)
+        precios.append(precio_actual)
+        etiquetas.append(f"Hoy: ${precio_actual:.2f}")
+        colores_marker.append(RED_BASE)
         
         fig = go.Figure()
         
-        # Línea principal
         fig.add_trace(go.Scatter(
-            x=df_hist['Fecha'], y=df_hist['Precio (€)'],
+            x=pd.to_datetime(fechas), y=precios,
             mode='lines+markers+text',
-            marker=dict(size=12, color=RED_BASE),
-            line=dict(color=RED_BASE, width=3),
+            marker=dict(size=12, color=colores_marker),
+            line=dict(color=RED_BASE, width=2),
             text=etiquetas,
             textposition='top center',
             textfont=dict(size=10),
@@ -230,38 +235,39 @@ def generar_grafico_precio(precio_ini, precio_fin, nombre, datos_historicos=None
             name='Precio'
         ))
         
-        # Zona sombreada entre precio base y mínimo
-        if len(fechas) >= 2:
-            fig.add_hrect(
-                y0=min(precios) - 0.5, y1=max(precios) + 0.5,
-                fillcolor="rgba(255, 75, 75, 0.07)",
-                line_width=0,
-            )
-        
-        # Línea de referencia del precio mínimo
+        # Línea de referencia del mínimo histórico
         fig.add_hline(
             y=precio_min, line_dash="dash", line_color="green",
-            annotation_text=f"Mínimo: {precio_min:.2f}€",
+            annotation_text=f"Mínimo: ${precio_min:.2f}",
             annotation_position="bottom right"
         )
         
+        # Línea de referencia del precio base
+        if precio_retail > 0 and precio_retail != precio_actual:
+            fig.add_hline(
+                y=precio_retail, line_dash="dot", line_color="gray",
+                annotation_text=f"Base: ${precio_retail:.2f}",
+                annotation_position="top right"
+            )
+        
+        max_precio = max(precios) if precios else 10
         fig.update_layout(
             title=f'📉 Evolución Real del Precio: {nombre}',
             xaxis_title='Fecha',
-            yaxis_title='Precio (€)',
+            yaxis_title='Precio (USD)',
             template=PLOT_TEMPLATE,
-            yaxis_range=[0, max(precios) + max(precios) * 0.3 + 2],
+            yaxis_range=[0, max_precio + max_precio * 0.3 + 2],
             showlegend=False
         )
         return fig
     else:
-        # Fallback: solo precio base y actual (sin datos de CheapShark)
+        # Fallback: solo precio base y actual EUR (sin datos de CheapShark)
         fechas = pd.date_range(end=pd.Timestamp.today(), periods=2, freq='ME')
-        precios = [precio_ini, precio_fin]
-        df_hist = pd.DataFrame({'Fecha': fechas, 'Precio (€)': precios})
+        precios_fb = [precio_ini_eur, precio_fin_eur]
+        df_hist = pd.DataFrame({'Fecha': fechas, 'Precio (€)': precios_fb})
         fig = px.line(df_hist, x='Fecha', y='Precio (€)', title=f'📈 Precio: {nombre}', 
                       markers=True, color_discrete_sequence=[RED_BASE])
-        fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10], template=PLOT_TEMPLATE)
+        fig.update_layout(yaxis_range=[0, max(precio_ini_eur, precio_fin_eur)+10], template=PLOT_TEMPLATE)
         return fig
 
 # ==========================================
@@ -357,11 +363,15 @@ with tab1:
                 if datos_juego['descuento_pct'] > 0:
                     st.success(f"🏷️ ¡Descuento activo: **-{datos_juego['descuento_pct']}%**!")
                 if datos_historicos:
-                    st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
+                    st.write(f"**💰 Mínimo Histórico:** ${datos_historicos['precio_min_historico']:.2f} USD")
                     if datos_historicos.get('fecha_min_historico'):
                         st.caption(f"Registrado el {datos_historicos['fecha_min_historico']}")
+                    if datos_historicos.get('precio_actual_usd') and datos_historicos.get('precio_retail_usd'):
+                        ahorro = datos_historicos['precio_retail_usd'] - datos_historicos['precio_min_historico']
+                        if ahorro > 0:
+                            st.caption(f"Llegó a bajar ${ahorro:.2f} respecto a su precio base")
                 else:
-                    st.caption("ℹ️ Sin datos históricos disponibles para este título.")
+                    st.caption("ℹ️ Sin datos históricos disponibles en CheapShark.")
             with col_d2:
                 fig_precio = generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_historicos)
                 st.plotly_chart(fig_precio, use_container_width=True)
@@ -426,7 +436,7 @@ with tab2:
                             if descuento > 0:
                                 st.success(f"🏷️ ¡Descuento activo: **-{descuento}%**!")
                             if datos_hist_buscar:
-                                st.write(f"**💰 Mínimo Histórico:** {datos_hist_buscar['precio_min_historico']:.2f} €")
+                                st.write(f"**💰 Mínimo Histórico:** ${datos_hist_buscar['precio_min_historico']:.2f} USD")
                                 if datos_hist_buscar.get('fecha_min_historico'):
                                     st.caption(f"Registrado el {datos_hist_buscar['fecha_min_historico']}")
                             
@@ -470,51 +480,48 @@ with tab3:
             if not df_n_filtro.empty:
                 st.metric(label=f"Impactos Informativos (Unidades)", value=len(df_n_filtro))
                 
+                # Titulares primero
+                st.subheader("Últimos Titulares")
+                for _, row in df_n_filtro.head(5).iterrows():
+                    st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
+                
+                # Gráficos al final, más pequeños, con eje X alineado
+                st.markdown("---")
+                df_temporal = df_n_filtro.copy()
+                df_temporal['fecha_corta'] = df_temporal['fecha_dt'].dt.date
+                conteo_temporal = df_temporal.groupby('fecha_corta').size()
+                conteo_cats = df_n_filtro['feedlabel'].value_counts().sort_values(ascending=True)
+                
                 col_m1, col_m2 = st.columns(2)
                 
                 with col_m1:
-                    st.markdown("**Publicaciones por Categoría**")
-                    conteo_cats = df_n_filtro['feedlabel'].value_counts().sort_values(ascending=True)
-                    
-                    fig_m1, ax_m1 = plt.subplots(figsize=(4, 2.5))
-                    fig_m1.patch.set_alpha(0.0) 
-                    ax_m1.patch.set_alpha(0.0)  
-                    
-                    ax_m1.barh(conteo_cats.index, conteo_cats.values, color=RED_BASE)
+                    st.caption("Publicaciones por Categoría")
+                    fig_m1, ax_m1 = plt.subplots(figsize=(3.5, 1.8))
+                    fig_m1.patch.set_alpha(0.0)
+                    ax_m1.patch.set_alpha(0.0)
+                    ax_m1.barh(conteo_cats.index, conteo_cats.values, color=RED_BASE, height=0.5)
                     ax_m1.spines['top'].set_visible(False)
                     ax_m1.spines['right'].set_visible(False)
-                    ax_m1.tick_params(colors='gray', labelsize=8)
-                    
-                    ax_m1.set_xlabel('Publicaciones', fontsize=9, color='gray')
+                    ax_m1.tick_params(colors='gray', labelsize=7)
+                    ax_m1.set_xlabel('Nº Publicaciones', fontsize=8, color='gray')
                     for spine in ax_m1.spines.values(): spine.set_edgecolor('gray')
-                    
                     fig_m1.tight_layout()
                     st.pyplot(fig_m1, transparent=True)
                 
                 with col_m2:
-                    st.markdown("**Evolución Temporal de Noticias**")
-                    df_temporal = df_n_filtro.copy()
-                    df_temporal['fecha_corta'] = df_temporal['fecha_dt'].dt.date
-                    conteo_temporal = df_temporal.groupby('fecha_corta').size()
-                    
-                    fig_m2, ax_m2 = plt.subplots(figsize=(4, 2.5))
+                    st.caption("Evolución Temporal")
+                    fig_m2, ax_m2 = plt.subplots(figsize=(3.5, 1.8))
                     fig_m2.patch.set_alpha(0.0)
                     ax_m2.patch.set_alpha(0.0)
-                    
-                    ax_m2.plot(conteo_temporal.index, conteo_temporal.values, color=RED_BASE, marker='o', linewidth=2)
+                    ax_m2.bar(conteo_temporal.index, conteo_temporal.values, color=RED_BASE, width=0.8)
                     ax_m2.spines['top'].set_visible(False)
                     ax_m2.spines['right'].set_visible(False)
-                    ax_m2.tick_params(colors='gray', rotation=30, labelsize=8)
-                    
-                    ax_m2.set_ylabel('Publicaciones', fontsize=9, color='gray')
+                    ax_m2.tick_params(colors='gray', rotation=30, labelsize=7)
+                    ax_m2.set_xlabel('Fecha', fontsize=8, color='gray')
+                    ax_m2.set_ylabel('Nº Publicaciones', fontsize=8, color='gray')
                     for spine in ax_m2.spines.values(): spine.set_edgecolor('gray')
-                    
                     fig_m2.tight_layout()
                     st.pyplot(fig_m2, transparent=True)
-                
-                st.subheader("Últimos Titulares")
-                for _, row in df_n_filtro.head(5).iterrows():
-                    st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
             else:
                 st.info(f"📭 No hay noticias en el periodo/tipo seleccionado.")
 
