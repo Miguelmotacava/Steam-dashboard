@@ -83,6 +83,7 @@ def render_jugador(df_super=None):
             st.markdown("<br>", unsafe_allow_html=True)
             submit_jugador = st.form_submit_button("Analizar Perfil")
 
+    perfil, df_juegos, df_generos_jugador = None, None, None
     if submit_jugador and input_perfil:
         steamid_real = obtener_steam_id_real(input_perfil)
         if not steamid_real:
@@ -92,11 +93,21 @@ def render_jugador(df_super=None):
         with st.spinner("⏳ Conectando con Steam y extrayendo biblioteca..."):
             try:
                 perfil, df_juegos, df_generos_jugador = fetch_user_profile(steamid_real)
+                st.session_state['jugador_perfil'] = perfil
+                st.session_state['jugador_df_juegos'] = df_juegos if df_juegos is not None else pd.DataFrame()
+                st.session_state['jugador_df_generos'] = df_generos_jugador if df_generos_jugador is not None else pd.DataFrame()
+                st.session_state['jugador_steamid'] = steamid_real
             except Exception as e:
                 st.error(f"❌ Error al cargar tu perfil: {e}")
                 perfil = None
+    else:
+        if 'jugador_perfil' in st.session_state:
+            perfil = st.session_state['jugador_perfil']
+            df_juegos = st.session_state.get('jugador_df_juegos') or pd.DataFrame()
+            df_generos_jugador = st.session_state.get('jugador_df_generos') or pd.DataFrame()
+            steamid_real = st.session_state.get('jugador_steamid', '')
 
-        if perfil:
+    if perfil:
             # --- TARJETA DE IDENTIDAD VIP ---
             nombre_jugador = perfil.get('personaname', 'Desconocido')
             avatar_url = perfil.get('avatarfull') or ''
