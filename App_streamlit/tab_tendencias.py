@@ -275,7 +275,7 @@ def render_tendencias(df_super):
                         )
                         fig_anim1.update_layout(
                             xaxis_range=[0, max_jugadores * 1.1],
-                            margin=dict(b=200),
+                            margin=dict(b=150),
                         )
                         fig_anim1.update_xaxes(title_standoff=30)
                         if fig_anim1.layout.updatemenus:
@@ -339,7 +339,7 @@ def render_tendencias(df_super):
                         )
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
-                            margin=dict(b=200),
+                            margin=dict(b=150),
                         )
                         fig_anim2.update_xaxes(title_standoff=30)
                         if fig_anim2.layout.updatemenus:
