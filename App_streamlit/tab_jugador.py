@@ -302,78 +302,68 @@ def render_jugador(df_super=None):
                 else:
                     st.info("No hay juegos con más de 1 hora jugada para mostrar.")
 
-                # --- SECCIÓN: Análisis de Inversión y Retorno ---
-                if df_super is not None and not df_super.empty:
+                # --- SECCIÓN: Espectro de Biblioteca vs Dedicación (Barras 100%) ---
+                if not df_generos_jugador.empty:
                     st.markdown("---")
-                    st.markdown("### 🧠 Análisis de Inversión y Retorno")
+                    st.markdown("### 🎭 Espectro de Biblioteca vs Dedicación")
 
-                    df_cruce = df_juegos[['appid', 'name', 'playtime_forever']].merge(
-                        df_super[['appid', 'precio_eur', 'generos', 'fecha_salida']],
-                        on='appid', how='left'
+                    df_esp = df_generos_jugador.groupby('genero').agg(
+                        cantidad=('juego', 'count'),
+                        dedicacion_minutos=('minutos', 'sum'),
+                    ).reset_index()
+                    df_esp['dedicacion_horas'] = df_esp['dedicacion_minutos'] / 60
+                    total_juegos_esp = df_esp['cantidad'].sum()
+                    total_horas_esp = df_esp['dedicacion_horas'].sum()
+                    df_esp['Pct_juegos'] = (df_esp['cantidad'] / total_juegos_esp * 100) if total_juegos_esp else 0
+                    df_esp['Pct_horas'] = (df_esp['dedicacion_horas'] / total_horas_esp * 100) if total_horas_esp else 0
+
+                    long_esp = pd.concat([
+                        df_esp[['genero', 'Pct_juegos']].assign(Tipo='% de Juegos en Propiedad').rename(columns={'Pct_juegos': 'Porcentaje'}),
+                        df_esp[['genero', 'Pct_horas']].assign(Tipo='% de Horas Jugadas').rename(columns={'Pct_horas': 'Porcentaje'}),
+                    ], ignore_index=True)
+
+                    fig_esp = px.bar(
+                        long_esp,
+                        x='Porcentaje',
+                        y='Tipo',
+                        color='genero',
+                        orientation='h',
+                        barnorm='percent',
+                        title='⚖️ Comparativa: Posesión vs Dedicación Real',
+                        labels={'Porcentaje': 'Dedicación (%)', 'genero': 'Género', 'Tipo': ''},
                     )
-                    df_cruce['precio_eur'] = df_cruce['precio_eur'].fillna(0)
-                    df_cruce['horas'] = df_cruce['playtime_forever'] / 60
-
-                    try:
-                        df_cruce['año'] = pd.to_datetime(df_cruce['fecha_salida'], errors='coerce').dt.year
-                    except Exception:
-                        df_cruce['año'] = None
-                    df_cruce['año'] = df_cruce['año'].fillna(0).astype(int)
-                    df_cruce['genero_principal'] = df_cruce['generos'].fillna('').apply(
-                        lambda s: s.split(', ')[0] if s else 'Sin Género'
+                    fig_esp.update_xaxes(range=[0, 100], title_text='Dedicación (%)')
+                    fig_esp.update_traces(
+                        hovertemplate='<b>Género</b>: %{legendgroup}<br><b>Porcentaje</b>: %{x:.1f} %<extra></extra>',
                     )
-                    df_cruce['modelo_negocio'] = df_cruce['precio_eur'].apply(
-                        lambda p: "Free-to-Play" if pd.isna(p) or float(p) == 0 else "De Pago"
+                    st.plotly_chart(aplicar_tema_oscuro_transparente(fig_esp), use_container_width=True)
+
+                # --- SECCIÓN: Perfil de Especialización (Área Polar) ---
+                if not df_generos_jugador.empty:
+                    st.markdown("### 🌀 Perfil de Especialización")
+
+                    df_polar = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
+                    df_polar['horas'] = df_polar['minutos'] / 60
+
+                    fig_polar = px.bar_polar(
+                        df_polar,
+                        r='horas',
+                        theta='genero',
+                        color='genero',
+                        title='🎯 Intensidad de Juego por Categoría',
+                        color_discrete_sequence=px.colors.qualitative.Set2,
                     )
-
-                    col_heat, col_strip = st.columns(2)
-
-                    with col_heat:
-                        df_heat = df_cruce[df_cruce['año'] > 0].copy()
-                        if not df_heat.empty:
-                            fig_heat = px.density_heatmap(
-                                df_heat,
-                                x='año',
-                                y='genero_principal',
-                                z='precio_eur',
-                                histfunc='sum',
-                                title='🔥 Distribución De Inversión (Mapa De Calor)',
-                                color_continuous_scale='Reds',
-                                labels={
-                                    'año': 'Año De Lanzamiento (Tiempo)',
-                                    'genero_principal': 'Género Principal (Tipo)',
-                                    'precio_eur': 'Inversión (€)',
-                                },
-                            )
-                            fig_heat = aplicar_tema_oscuro_transparente(fig_heat)
-                            st.plotly_chart(fig_heat, use_container_width=True)
-                        else:
-                            st.info("No hay datos de año de lanzamiento para el mapa de calor.")
-
-                    with col_strip:
-                        df_strip = df_cruce[df_cruce['horas'] > 0].copy()
-                        if not df_strip.empty:
-                            fig_strip = px.strip(
-                                df_strip,
-                                x='modelo_negocio',
-                                y='horas',
-                                color='modelo_negocio',
-                                hover_name='name',
-                                stripmode='group',
-                                title='📊 Retorno De Inversión: Free-to-Play vs De Pago (Distribución)',
-                                color_discrete_map={'Free-to-Play': GRIS_OSCURO, 'De Pago': RED_BASE},
-                                labels={
-                                    'modelo_negocio': 'Modelo De Negocio (Tipo)',
-                                    'horas': 'Tiempo Invertido (Horas)',
-                                    'name': 'Videojuego',
-                                },
-                            )
-                            fig_strip.update_traces(
-                                hovertemplate='<b>Videojuego</b>: %{hovertext}<br><b>Modelo de negocio</b>: %{x}<br><b>Tiempo jugado</b>: %{y:.1f} h<extra></extra>',
-                            )
-                            fig_strip = aplicar_tema_oscuro_transparente(fig_strip)
-                            st.plotly_chart(fig_strip, use_container_width=True)
-                        else:
-                            st.info("No hay juegos con tiempo jugado para el gráfico de retorno.")
+                    fig_polar.update_traces(
+                        hovertemplate='<b>Género</b>: %{theta}<br><b>Horas jugadas</b>: %{r:.1f} h<extra></extra>',
+                    )
+                    fig_polar.update_layout(
+                        polar=dict(
+                            radialaxis=dict(tickfont=dict(color='white'), gridcolor='rgba(255,255,255,0.1)'),
+                            angularaxis=dict(tickfont=dict(color='white'), gridcolor='rgba(255,255,255,0.1)'),
+                            bgcolor='rgba(0,0,0,0)',
+                        ),
+                    )
+                    fig_polar = aplicar_tema_oscuro_transparente(fig_polar)
+                    st.plotly_chart(fig_polar, use_container_width=True)
         else:
             st.error("❌ Perfil no encontrado o no existe.")
