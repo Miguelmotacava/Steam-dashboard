@@ -273,9 +273,9 @@ def generar_grafico_precio(precio_ini_eur, precio_fin_eur, nombre, datos_histori
 # ==========================================
 # INTERFAZ PRINCIPAL
 # ==========================================
-st.title("Dashboard de Análisis de Steam")
+st.title("🎮 Dashboard de Análisis de Steam")
 st.markdown("### Configuración de Análisis Global")
-num_juegos = st.slider("Selecciona el número de juegos del Top a analizar:", 10, 100, 50, 10)
+num_juegos = st.slider("🎯 Selecciona el número de juegos del Top a analizar:", 10, 100, 50, 10)
 st.markdown("---")
 
 df_super = load_steam_data(num_juegos)
@@ -286,19 +286,19 @@ tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🔎 Buscador Global", "�
 # PESTAÑA 1: TENDENCIAS
 # ==========================================
 with tab1:
-    st.header(f"Tendencias Actuales en el Top {num_juegos}")
+    st.header(f"📈 Tendencias Actuales en el Top {num_juegos}")
     st.info("Mostrando datos en tiempo real. Steam no permite filtrar por horas pasadas en este ranking.")
     
     if df_super.empty:
         st.error("Error al conectar con Steam. Inténtalo de nuevo en unos minutos.")
     else:
         col_f1, col_f2, col_f3 = st.columns(3)
-        with col_f1: juegos_sel = st.multiselect("Filtrar por Videojuego", options=df_super['nombre'].unique())
-        with col_f2: plat_sel = st.selectbox("Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
+        with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
+        with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
         with col_f3:
             todos_gen = set()
             for gen in df_super['generos'].dropna(): todos_gen.update(gen.split(', '))
-            gen_sel = st.selectbox("Filtrar por Género", ["Todos"] + sorted(list(todos_gen)))
+            gen_sel = st.selectbox("🎭 Filtrar por Género", ["Todos"] + sorted(list(todos_gen)))
 
         df_filtrado = df_super.copy()
         
@@ -310,15 +310,15 @@ with tab1:
 
         if not df_filtrado.empty:
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            kpi1.metric("Jugadores (Totales)", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
-            kpi2.metric("Juegos (Unidades)", len(df_filtrado))
-            kpi3.metric("Precio Medio (Euros)", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
-            kpi4.metric("Juegos Gratuitos (Unidades)", int(df_filtrado['es_gratis'].sum()))
+            kpi1.metric("👥 Jugadores (Totales)", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
+            kpi2.metric("🕹️ Juegos (Unidades)", len(df_filtrado))
+            kpi3.metric("💸 Precio Medio (Euros)", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
+            kpi4.metric("🎁 Juegos Gratuitos (Unidades)", int(df_filtrado['es_gratis'].sum()))
 
             col_g1, col_g2 = st.columns(2)
             with col_g1:
                 df_plot1 = df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales')
-                fig1 = px.bar(df_plot1, x='jugadores_actuales', y='nombre', orientation='h', title='Top 10 Juegos', 
+                fig1 = px.bar(df_plot1, x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Top 10 Juegos', 
                               labels={'jugadores_actuales': 'Jugadores Concurrentes (Unidades)', 'nombre': 'Videojuego'},
                               color_discrete_sequence=[RED_BASE])
                 st.plotly_chart(fig1, use_container_width=True)
@@ -326,7 +326,7 @@ with tab1:
             with col_g2:
                 df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
                 df_g = df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index()
-                fig2 = px.treemap(df_g[df_g['jugadores_actuales']>0], path=['genero'], values='jugadores_actuales', title='Jugadores por Género', 
+                fig2 = px.treemap(df_g[df_g['jugadores_actuales']>0], path=['genero'], values='jugadores_actuales', title='🎭 Jugadores por Género', 
                                   labels={'jugadores_actuales': 'Jugadores (Unidades)', 'genero': 'Categoría'},
                                   color='jugadores_actuales', color_continuous_scale=RED_SCALE)
                 st.plotly_chart(fig2, use_container_width=True)
@@ -334,36 +334,36 @@ with tab1:
             col_g3, col_g4 = st.columns(2)
             with col_g3:
                 df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
-                fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='Compatibilidad de Sistema Operativo', 
+                fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistema Operativo', 
                               color='SO', color_discrete_map=RED_DONUT)
                 st.plotly_chart(fig3, use_container_width=True)
             
             with col_g4:
                 df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
                 if not df_scat.empty:
-                    fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='Relación Precio y Crítica', 
+                    fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='💎 Relación Precio y Crítica', 
                                       labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Crítica', 'nombre': 'Videojuego'},
                                       color='nombre')
                     st.plotly_chart(fig4, use_container_width=True)
 
             # --- CONTENIDO ADICIONAL Y EVOLUCIÓN DE PRECIO ---
-            st.markdown("### Análisis de Modelo de Negocio por Juego")
+            st.markdown("### 🛒 Análisis de Modelo de Negocio por Juego")
             juego_analisis = st.selectbox("Selecciona un juego para ver su modelo de negocio:", df_filtrado['nombre'].unique(), key="sel_negocio")
             datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
             
             # Obtener precio histórico de CheapShark
-            with st.spinner("Consultando historial de precios en CheapShark..."):
+            with st.spinner("🔍 Consultando historial de precios en CheapShark..."):
                 datos_historicos = obtener_precio_historico(datos_juego['appid'], juego_analisis)
             
             col_d1, col_d2 = st.columns([1, 2])
             with col_d1:
-                st.metric("Contenido Adicional", int(datos_juego['contenido_adicional_count']))
+                st.metric("📦 Contenido Adicional", int(datos_juego['contenido_adicional_count']))
                 st.write(f"**Precio Base (sin descuento):** {datos_juego['precio_inicial']:.2f} €")
                 st.write(f"**Precio Actual:** {datos_juego['precio_eur']:.2f} €")
                 if datos_juego['descuento_pct'] > 0:
-                    st.success(f"Descuento activo: **-{datos_juego['descuento_pct']}%**")
+                    st.success(f"🏷️ ¡Descuento activo: **-{datos_juego['descuento_pct']}%**!")
                 if datos_historicos:
-                    st.write(f"**Mínimo Histórico:** ${datos_historicos['precio_min_historico']:.2f} USD")
+                    st.write(f"**💰 Mínimo Histórico:** ${datos_historicos['precio_min_historico']:.2f} USD")
                     if datos_historicos.get('fecha_min_historico'):
                         st.caption(f"Registrado el {datos_historicos['fecha_min_historico']}")
                     if datos_historicos.get('precio_actual_usd') and datos_historicos.get('precio_retail_usd'):
@@ -371,7 +371,7 @@ with tab1:
                         if ahorro > 0:
                             st.caption(f"Llegó a bajar ${ahorro:.2f} respecto a su precio base")
                 else:
-                    st.caption("Sin datos históricos disponibles en CheapShark.")
+                    st.caption("ℹ️ Sin datos históricos disponibles en CheapShark.")
             with col_d2:
                 fig_precio = generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_historicos)
                 st.plotly_chart(fig_precio, use_container_width=True)
@@ -380,13 +380,13 @@ with tab1:
 # PESTAÑA 2: BUSCADOR GLOBAL
 # ==========================================
 with tab2:
-    st.header("Explorador del Catálogo")
+    st.header("🌌 Explorador del Catálogo")
     st.write("Accede a las métricas en tiempo real de cualquier título fuera del Top 100.")
     
     df_all_apps = load_all_apps()
     
     if not df_all_apps.empty:
-        texto_buscar = st.text_input("Escribe el nombre exacto o parte de él (Mínimo 3 letras):")
+        texto_buscar = st.text_input("✍️ Escribe el nombre exacto o parte de él (Mínimo 3 letras):")
         
         if len(texto_buscar) >= 3:
             coincidencias = df_all_apps[df_all_apps['name'].str.contains(texto_buscar, case=False, na=False)]
@@ -427,16 +427,16 @@ with tab2:
                         
                         with col_b1:
                             st.image(data.get('header_image', ''), use_container_width=True)
-                            st.metric("Contenido Adicional", contenido_adicional)
+                            st.metric("📦 Contenido Adicional", contenido_adicional)
                         
                         with col_b2:
                             st.subheader(data.get('name'))
-                            st.metric("Jugadores Actuales", f"{jugadores_vivo:,}".replace(',', '.'))
-                            st.metric("Precio Actual", f"{precio_fin:.2f} €" if precio_fin > 0 else "Gratis")
+                            st.metric("👥 Jugadores Actuales", f"{jugadores_vivo:,}".replace(',', '.'))
+                            st.metric("💸 Precio Actual", f"{precio_fin:.2f} €" if precio_fin > 0 else "Gratis")
                             if descuento > 0:
-                                st.success(f"Descuento activo: **-{descuento}%**")
+                                st.success(f"🏷️ ¡Descuento activo: **-{descuento}%**!")
                             if datos_hist_buscar:
-                                st.write(f"**Mínimo Histórico:** ${datos_hist_buscar['precio_min_historico']:.2f} USD")
+                                st.write(f"**💰 Mínimo Histórico:** ${datos_hist_buscar['precio_min_historico']:.2f} USD")
                                 if datos_hist_buscar.get('fecha_min_historico'):
                                     st.caption(f"Registrado el {datos_hist_buscar['fecha_min_historico']}")
                             
@@ -452,16 +452,16 @@ with tab2:
 # PESTAÑA 3: NOTICIAS
 # ==========================================
 with tab3:
-    st.header("Radar de Noticias Oficiales")
+    st.header("📰 Radar de Noticias Oficiales")
     if not df_super.empty:
         col_n1, col_n2, col_n3 = st.columns([2, 1, 1])
         with col_n1:
-            juego_elegido = st.selectbox("Selecciona un juego para analizar sus noticias:", df_super['nombre'].unique())
+            juego_elegido = st.selectbox("🕹️ Selecciona un juego para analizar sus noticias:", df_super['nombre'].unique())
             appid_elegido = df_super[df_super['nombre'] == juego_elegido]['appid'].iloc[0]
         with col_n2:
-            filtro_tiempo = st.radio("Rango temporal:", ["Último Día", "Última Semana", "Último Mes", "Todo"], index=2)
+            filtro_tiempo = st.radio("⏱️ Rango temporal:", ["Último Día", "Última Semana", "Último Mes", "Todo"], index=2)
         with col_n3:
-            tipo_noticia = st.radio("Tipo de Contenido:", ["Todo", "Solo Parches y Actualizaciones", "Anuncios y Novedades"])
+            tipo_noticia = st.radio("🛠️ Tipo de Contenido:", ["Todo", "Solo Parches y Actualizaciones", "Anuncios y Novedades"])
 
         df_news = load_news_data(appid_elegido)
         if not df_news.empty:
@@ -483,7 +483,7 @@ with tab3:
                 # Titulares primero
                 st.subheader("Últimos Titulares")
                 for _, row in df_n_filtro.head(5).iterrows():
-                    st.markdown(f"**{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
+                    st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
                 
                 # Gráficos al final, más pequeños, con eje X alineado
                 st.markdown("---")
@@ -523,19 +523,19 @@ with tab3:
                     fig_m2.tight_layout()
                     st.pyplot(fig_m2, transparent=True)
             else:
-                st.info(f"No hay noticias en el periodo/tipo seleccionado.")
+                st.info(f"📭 No hay noticias en el periodo/tipo seleccionado.")
 
 # ==========================================
 # PESTAÑA 4: PERFIL DE JUGADOR
 # ==========================================
 with tab4:
-    st.header("Análisis de ADN de Jugador")
+    st.header("👤 Análisis de ADN de Jugador")
     st.write("Introduce el SteamID64 de un perfil público (ej: `76561197960435530`).")
     
-    steam_id_input = st.text_input("SteamID64:", max_chars=17)
+    steam_id_input = st.text_input("🔍 SteamID64:", max_chars=17)
     
     if steam_id_input and len(steam_id_input) == 17:
-        with st.spinner("Conectando con los servidores de Steam y procesando horas de juego..."):
+        with st.spinner("⏳ Conectando con los servidores de Steam y procesando horas de juego..."):
             perfil, df_juegos, df_generos_jugador = load_player_profile(steam_id_input)
         
         if perfil:
@@ -546,8 +546,8 @@ with tab4:
             with col_p2:
                 st.subheader(perfil.get('personaname', 'Desconocido'))
                 horas_totales = df_juegos['playtime_forever'].sum() / 60
-                st.write(f"**Juegos en Propiedad:** {len(df_juegos)}")
-                st.write(f"**Tiempo Jugado Total:** {int(horas_totales):,} Horas".replace(',', '.'))
+                st.write(f"🎮 **Juegos en Propiedad:** {len(df_juegos)}")
+                st.write(f"⏱️ **Tiempo Jugado Total:** {int(horas_totales):,} Horas".replace(',', '.'))
 
             if not df_juegos.empty and not df_generos_jugador.empty:
                 col_j1, col_j2 = st.columns(2)
@@ -556,7 +556,7 @@ with tab4:
                     df_juegos['horas'] = df_juegos['playtime_forever'] / 60
                     top_juegos_jug = df_juegos.nlargest(10, 'horas').sort_values('horas')
                     fig_p1 = px.bar(top_juegos_jug, x='horas', y='name', orientation='h', 
-                                    title='Juegos con Mayor Tiempo de Uso', 
+                                    title='🏆 Juegos con Mayor Tiempo de Uso', 
                                     labels={'horas': 'Tiempo Jugado (Horas)', 'name': 'Videojuego'}, 
                                     color_discrete_sequence=[RED_BASE], template=PLOT_TEMPLATE)
                     st.plotly_chart(fig_p1, use_container_width=True)
@@ -565,7 +565,7 @@ with tab4:
                     radar_data = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
                     radar_data['horas'] = radar_data['minutos'] / 60
                     fig_p2 = px.line_polar(radar_data, r='horas', theta='genero', line_close=True,
-                                           title='Perfil por Categorías',
+                                           title='🕸️ Perfil por Categorías',
                                            labels={'horas': 'Tiempo Jugado (Horas)', 'genero': 'Categoría'},
                                            color_discrete_sequence=[RED_BASE], template=PLOT_TEMPLATE)
                     fig_p2.update_traces(fill='toself', fillcolor='rgba(255, 75, 75, 0.4)')

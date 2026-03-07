@@ -13,21 +13,21 @@ Herramienta de visualización en tiempo real que extrae y analiza datos directam
 ## Funcionalidades
 
 ### Tendencias (Pestaña 1)
-- **Top N juegos** por jugadores concurrentes (configurable 10-100)
+- Top N juegos por jugadores concurrentes (configurable 10-100)
 - KPIs: jugadores totales, precio medio, juegos gratuitos
 - Gráficos interactivos: barras (Top 10), treemap (géneros), donut (SO), scatter (precio vs Metacritic)
 - Filtros por videojuego, plataforma y género
-- **Modelo de Negocio**: precio mínimo histórico (vía CheapShark), descuentos activos, contenido adicional
+- Modelo de Negocio: precio mínimo histórico (vía CheapShark), descuentos activos, contenido adicional
 
 ### Buscador Global (Pestaña 2)
-- Búsqueda entre **todos** los títulos del catálogo de Steam (~200.000+)
+- Búsqueda entre todos los títulos del catálogo de Steam (~200.000+)
 - Datos en tiempo real: jugadores actuales, precio, descuentos, contenido adicional
 - Gráfico de evolución de precio con mínimo histórico
 
 ### Noticias (Pestaña 3)
 - Noticias oficiales por juego con filtros temporales (día/semana/mes/todo)
 - Clasificación por tipo: parches vs anuncios
-- Visualización de frecuencia temporal y categorías
+- Titulares destacados y visualización de frecuencia temporal
 
 ### Perfil de Jugador (Pestaña 4)
 - Análisis de biblioteca personal por SteamID64
@@ -83,7 +83,7 @@ Crear archivo `.env` en la raíz del proyecto:
 ```env
 STEAM_API_KEY=tu_api_key_aqui
 ```
-> Puedes obtener tu API Key en [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey)
+Puedes obtener tu API Key en [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey)
 
 ### 5. Ejecutar
 ```bash
@@ -117,7 +117,7 @@ Steam-dashboard/
 
 ## Licencia
 
-Proyecto académico — Máster Big Data ICAI (2025-2026), asignatura de Visualización.
+Proyecto académico — Master Big Data ICAI (2025-2026), asignatura de Visualización.
 
 ## Autor
 
