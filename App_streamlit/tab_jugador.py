@@ -306,68 +306,72 @@ def render_jugador(df_super=None):
                 else:
                     st.info("No hay juegos con más de 1 hora jugada para mostrar.")
 
-                # --- SECCIÓN: Espectro de Biblioteca vs Dedicación (Barras 100%) ---
+                # --- SECCIÓN: Slope Chart - Eficiencia de Compra ---
                 if not df_generos_jugador.empty:
                     st.markdown("---")
-                    st.markdown("### 🎭 Espectro de Biblioteca vs Dedicación")
+                    st.markdown("### 📉 Relación: Cantidad vs Dedicación Real")
 
-                    df_esp = df_generos_jugador.groupby('genero').agg(
+                    df_slope = df_generos_jugador.groupby('genero').agg(
                         cantidad=('juego', 'count'),
                         dedicacion_minutos=('minutos', 'sum'),
                     ).reset_index()
-                    df_esp['dedicacion_horas'] = df_esp['dedicacion_minutos'] / 60
-                    total_juegos_esp = df_esp['cantidad'].sum()
-                    total_horas_esp = df_esp['dedicacion_horas'].sum()
-                    df_esp['Pct_juegos'] = (df_esp['cantidad'] / total_juegos_esp * 100) if total_juegos_esp else 0
-                    df_esp['Pct_horas'] = (df_esp['dedicacion_horas'] / total_horas_esp * 100) if total_horas_esp else 0
+                    df_slope['dedicacion_horas'] = df_slope['dedicacion_minutos'] / 60
+                    df_slope['rank_biblioteca'] = df_slope['cantidad'].rank(ascending=False, method='min').astype(int)
+                    df_slope['rank_juego'] = df_slope['dedicacion_horas'].rank(ascending=False, method='min').astype(int)
 
-                    long_esp = pd.concat([
-                        df_esp[['genero', 'Pct_juegos']].assign(Tipo='% de Juegos en Propiedad').rename(columns={'Pct_juegos': 'Porcentaje'}),
-                        df_esp[['genero', 'Pct_horas']].assign(Tipo='% de Horas Jugadas').rename(columns={'Pct_horas': 'Porcentaje'}),
+                    long_slope = pd.concat([
+                        df_slope[['genero', 'rank_biblioteca']].assign(Eje='En Biblioteca').rename(columns={'rank_biblioteca': 'Posicion'}),
+                        df_slope[['genero', 'rank_juego']].assign(Eje='En Juego').rename(columns={'rank_juego': 'Posicion'}),
                     ], ignore_index=True)
 
-                    fig_esp = px.bar(
-                        long_esp,
-                        x='Porcentaje',
-                        y='Tipo',
+                    fig_slope = px.line(
+                        long_slope,
+                        x='Eje',
+                        y='Posicion',
                         color='genero',
-                        orientation='h',
-                        barmode='stack',
-                        title='⚖️ Comparativa: Posesión vs Dedicación Real',
-                        labels={'Porcentaje': 'Dedicación (%)', 'genero': 'Género', 'Tipo': ''},
+                        markers=True,
+                        title='📊 Comparativa De Relevancia Por Género',
+                        labels={'Eje': '', 'Posicion': 'Posición (Ranking)', 'genero': 'Género'},
+                        color_discrete_sequence=px.colors.qualitative.Vivid,
                     )
-                    fig_esp.update_xaxes(range=[0, 100], title_text='Dedicación (%)')
-                    fig_esp.update_traces(
-                        hovertemplate='<b>Género</b>: %{legendgroup}<br><b>Porcentaje</b>: %{x:.1f} %<extra></extra>',
+                    fig_slope.update_yaxes(autorange='reversed', title_text='Posición (Ranking)')
+                    fig_slope.update_traces(
+                        hovertemplate='<b>Género</b>: %{fullData.name}<br><b>Eje</b>: %{x}<br><b>Posición</b>: %{y}<extra></extra>',
                     )
-                    st.plotly_chart(aplicar_tema_oscuro_transparente(fig_esp), use_container_width=True)
+                    st.plotly_chart(aplicar_tema_oscuro_transparente(fig_slope), use_container_width=True)
 
-                # --- SECCIÓN: Perfil de Especialización (Área Polar) ---
-                if not df_generos_jugador.empty:
-                    st.markdown("### 🌀 Perfil de Especialización")
+                # --- SECCIÓN: Burbujas de Actividad Reciente (Punch Card) ---
+                if df_juegos is not None and not df_juegos.empty:
+                    playtime_col = 'playtime_2weeks' if 'playtime_2weeks' in df_juegos.columns else None
+                    if playtime_col:
+                        df_reciente = df_juegos[df_juegos[playtime_col] > 0].copy()
+                        if not df_reciente.empty:
+                            st.markdown("### 🕒 Intensidad de Sesiones Recientes")
+                            df_reciente['horas_recientes'] = df_reciente[playtime_col] / 60
+                            df_reciente['eje_fijo'] = 1
 
-                    df_polar = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
-                    df_polar['horas'] = df_polar['minutos'] / 60
-
-                    fig_polar = px.bar_polar(
-                        df_polar,
-                        r='horas',
-                        theta='genero',
-                        color='genero',
-                        title='🎯 Intensidad de Juego por Categoría',
-                        color_discrete_sequence=px.colors.qualitative.Set2,
-                    )
-                    fig_polar.update_traces(
-                        hovertemplate='<b>Género</b>: %{theta}<br><b>Horas jugadas</b>: %{r:.1f} h<extra></extra>',
-                    )
-                    fig_polar.update_layout(
-                        polar=dict(
-                            radialaxis=dict(tickfont=dict(color='white'), gridcolor='rgba(255,255,255,0.1)'),
-                            angularaxis=dict(tickfont=dict(color='white'), gridcolor='rgba(255,255,255,0.1)'),
-                            bgcolor='rgba(0,0,0,0)',
-                        ),
-                    )
-                    fig_polar = aplicar_tema_oscuro_transparente(fig_polar)
-                    st.plotly_chart(fig_polar, use_container_width=True)
+                            fig_burb = px.scatter(
+                                df_reciente,
+                                x='name',
+                                y='eje_fijo',
+                                size='horas_recientes',
+                                color='horas_recientes',
+                                color_continuous_scale=['#FFB3B3', RED_BASE],
+                                title='🔥 Intensidad De Juego (Últimas 2 Semanas)',
+                                labels={'name': 'Videojuego', 'horas_recientes': 'Horas (Últimas 2 Semanas)', 'eje_fijo': ''},
+                            )
+                            fig_burb.update_layout(showlegend=False)
+                            fig_burb.update_yaxes(showticklabels=False, title_text='')
+                            fig_burb.update_traces(
+                                customdata=df_reciente['horas_recientes'],
+                                hovertemplate='<b>Videojuego</b>: %{x}<br><b>Horas jugadas</b>: %{customdata:.1f} h<extra></extra>',
+                            )
+                            st.plotly_chart(aplicar_tema_oscuro_transparente(fig_burb), use_container_width=True)
+                        else:
+                            st.markdown("### 🕒 Intensidad de Sesiones Recientes")
+                            st.info("No hay actividad en las últimas 2 semanas.")
+                    else:
+                        st.markdown("### 🕒 Intensidad de Sesiones Recientes")
+                        st.info("Los datos de actividad reciente no están disponibles para este perfil.")
         else:
             st.error("❌ Perfil no encontrado o no existe.")
