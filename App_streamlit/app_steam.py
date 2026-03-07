@@ -11,16 +11,17 @@ st.markdown("""<style>.stProgress > div > div > div > div { background-color: #F
 
 st.title("🎮 Dashboard de Análisis de Steam")
 
+# El buscador global ha sido eliminado para máxima velocidad
+tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])
+
+num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
+
 df_super = pd.DataFrame()
 try:
     df_super = fetch_global_steam_data(num_juegos)
 except Exception as e:
     st.error(f"Error al analizar el mercado global: {e}")
 
-# El buscador global ha sido eliminado para máxima velocidad
-tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])
-
-num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
 st.markdown("---")
 
 if not df_super.empty:
