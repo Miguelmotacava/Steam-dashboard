@@ -342,7 +342,7 @@ def render_jugador(df_super=None):
                     appid_actual = juego_actual.get('appid')
                     horas_juego = (juego_actual.get('playtime_forever') or 0) / 60.0
 
-                    # Ingesta: logros del jugador + rarezas globales (API ya cruza ambos)
+                    # Ingesta: al seleccionar el juego se llama a la API de logros para ese appid
                     logros_raw = []
                     if steamid_actual and appid_actual:
                         try:
@@ -354,17 +354,30 @@ def render_jugador(df_super=None):
                     desbloqueados = [l for l in logros_raw if l.get('achieved')]
                     df_logros = pd.DataFrame()
                     if desbloqueados:
-                        df_logros = pd.DataFrame([
-                            {
-                                'Nombre': l.get('name', ''),
-                                'Fecha': datetime.fromtimestamp(l['unlocktime']) if l.get('unlocktime') else None,
-                                'Rareza': float(l.get('rarity', 50)),
-                                'Descripcion': (l.get('description') or '')[:200],
-                            }
-                            for l in desbloqueados
-                        ])
-                        df_logros = df_logros.dropna(subset=['Fecha']).sort_values('Fecha').reset_index(drop=True)
-                        df_logros['Conteo Acumulado'] = range(1, len(df_logros) + 1)
+                        filas = []
+                        for l in desbloqueados:
+                            ut = l.get('unlocktime')
+                            if ut is None or (isinstance(ut, (int, float)) and ut <= 0):
+                                continue
+                            try:
+                                fecha = datetime.utcfromtimestamp(int(ut))
+                            except (TypeError, ValueError, OSError):
+                                continue
+                            try:
+                                rareza = float(l.get('rarity', 50))
+                            except (TypeError, ValueError):
+                                rareza = 50.0
+                            filas.append({
+                                'Nombre': str(l.get('name', '')),
+                                'Fecha': fecha,
+                                'Rareza': rareza,
+                                'Descripcion': (str(l.get('description') or '')[:200]),
+                            })
+                        if filas:
+                            df_logros = pd.DataFrame(filas)
+                            df_logros['Fecha'] = pd.to_datetime(df_logros['Fecha'], utc=False)
+                            df_logros = df_logros.sort_values('Fecha').reset_index(drop=True)
+                            df_logros['Conteo Acumulado'] = list(range(1, len(df_logros) + 1))
 
                     if df_logros.empty:
                         st.info(
@@ -390,21 +403,34 @@ def render_jugador(df_super=None):
                         col_timeline, col_pie = st.columns([2, 1])
 
                         with col_timeline:
-                            df_timeline = df_logros.copy()
-                            fig_line = px.line(
-                                df_timeline,
-                                x='Fecha',
-                                y='Conteo Acumulado',
-                                markers=True,
-                                color='Rareza',
-                                color_continuous_scale='Plasma',
-                                title='📈 Cronología De Progresión (Hitos de Juego)',
-                                labels={
-                                    'Fecha': 'Fecha de obtención',
-                                    'Conteo Acumulado': 'Logros acumulados',
-                                    'Rareza': 'Rareza (%)',
-                                },
-                            )
+                            df_timeline = df_logros[['Fecha', 'Conteo Acumulado', 'Rareza']].copy()
+                            df_timeline['Rareza'] = df_timeline['Rareza'].astype(float)
+                            df_timeline['Conteo Acumulado'] = df_timeline['Conteo Acumulado'].astype(int)
+                            try:
+                                fig_line = px.line(
+                                    df_timeline,
+                                    x='Fecha',
+                                    y='Conteo Acumulado',
+                                    markers=True,
+                                    color='Rareza',
+                                    color_continuous_scale='Plasma',
+                                    title='📈 Cronología De Progresión (Hitos de Juego)',
+                                    labels={
+                                        'Fecha': 'Fecha de obtención',
+                                        'Conteo Acumulado': 'Logros acumulados',
+                                        'Rareza': 'Rareza (%)',
+                                    },
+                                )
+                            except (TypeError, ValueError):
+                                fig_line = px.line(
+                                    df_timeline,
+                                    x='Fecha',
+                                    y='Conteo Acumulado',
+                                    markers=True,
+                                    title='📈 Cronología De Progresión (Hitos de Juego)',
+                                    labels={'Fecha': 'Fecha de obtención', 'Conteo Acumulado': 'Logros acumulados'},
+                                )
+                                fig_line.update_traces(line_color=RED_BASE)
                             fig_line.update_traces(
                                 line=dict(width=2),
                                 marker=dict(size=8),

@@ -298,7 +298,7 @@ def render_tendencias(df_super):
                                     x=0.5,
                                     xanchor='center',
                                     buttons=[
-                                        dict(label='▶ Play', method='animate', args=[None, dict(frame=dict(duration=150, redraw=True), fromcurrent=True)]),
+                                        dict(label='▶ Play', method='animate', args=[None, dict(frame=dict(duration=300, redraw=True), fromcurrent=True)]),
                                         dict(label='⏸ Pausa', method='animate', args=[[None], dict(mode='immediate')]),
                                     ],
                                 )
@@ -355,7 +355,7 @@ def render_tendencias(df_super):
                     else:
                         st.info("No hay datos históricos por género.")
 
-                # Animación 2: Evolución de Categorías (misma fila que animación 1)
+                # Animación 2: Carrera de géneros (mismo tipo que animación 1: go.Figure + frames, barras horizontales por ranking)
                 if not df_hist_merge.empty:
                     df_gen_hist_anim = (
                         df_hist_merge.assign(genero=df_hist_merge['generos'].str.split(', '))
@@ -367,35 +367,70 @@ def render_tendencias(df_super):
                     if not df_gen_hist_anim.empty:
                         df_anim_gen = df_gen_hist_anim.sort_values('Fecha').copy()
                         df_anim_gen['Hora_Frame'] = pd.to_datetime(df_anim_gen['Fecha']).dt.strftime('%d/%m %H:%M')
+                        frames_order_gen = df_anim_gen['Hora_Frame'].unique().tolist()
                         max_jugadores_categoria = df_anim_gen['jugadores_historicos'].max()
-                        fig_anim2 = px.bar(
-                            df_anim_gen,
-                            x='genero',
-                            y='jugadores_historicos',
-                            color='genero',
-                            animation_frame='Hora_Frame',
-                            title='📊 Evolución De Jugadores Por Categoría (Animación En Vivo)',
-                            color_discrete_sequence=px.colors.qualitative.Vivid,
-                            labels={
-                                'genero': 'Género',
-                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'Hora_Frame': 'Fecha De Registro (Tiempo)',
-                            },
+                        colores_gen = dict(zip(df_anim_gen['genero'].unique(), px.colors.qualitative.Vivid[: df_anim_gen['genero'].nunique()]))
+                        frames_list_gen = []
+                        for hf in frames_order_gen:
+                            sub = df_anim_gen[df_anim_gen['Hora_Frame'] == hf].sort_values('jugadores_historicos', ascending=False)
+                            orden_generos = sub['genero'].tolist()
+                            fr = go.Frame(
+                                name=str(hf),
+                                data=[
+                                    go.Bar(
+                                        x=sub['jugadores_historicos'],
+                                        y=sub['genero'],
+                                        orientation='h',
+                                        marker_color=[colores_gen.get(g, RED_BASE) for g in sub['genero']],
+                                        hovertemplate='<b>Género</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>',
+                                    )
+                                ],
+                                layout=go.Layout(yaxis=dict(categoryorder='array', categoryarray=orden_generos)),
+                            )
+                            frames_list_gen.append(fr)
+                        fig_anim2 = go.Figure(
+                            data=frames_list_gen[0].data if frames_list_gen else [],
+                            layout=go.Layout(
+                                title='📊 Carrera De Jugadores Por Categoría (Animación En Vivo)',
+                                xaxis=dict(title='Jugadores Concurrentes (Unidades)', range=[0, max_jugadores_categoria * 1.1]),
+                                yaxis=dict(
+                                    title='Género',
+                                    categoryorder='array',
+                                    categoryarray=frames_list_gen[0].layout.yaxis.categoryarray if frames_list_gen else [],
+                                ),
+                                margin=dict(b=80, t=50),
+                                height=480,
+                                updatemenus=[
+                                    dict(
+                                        type='buttons',
+                                        showactive=False,
+                                        y=-0.35,
+                                        x=0.5,
+                                        xanchor='center',
+                                        buttons=[
+                                            dict(label='▶ Play', method='animate', args=[None, dict(frame=dict(duration=300, redraw=True), fromcurrent=True)]),
+                                            dict(label='⏸ Pausa', method='animate', args=[[None], dict(mode='immediate')]),
+                                        ],
+                                    )
+                                ],
+                                sliders=[
+                                    dict(
+                                        active=0,
+                                        y=-0.25,
+                                        len=0.9,
+                                        xanchor='center',
+                                        pad=dict(b=10, t=0),
+                                        currentvalue=dict(prefix='Fecha: ', visible=True, xanchor='center'),
+                                        steps=[
+                                            dict(args=[[hf], dict(frame=dict(duration=0, redraw=True), mode='immediate')], label=hf[:12] if len(str(hf)) > 12 else hf, method='animate')
+                                            for hf in frames_order_gen
+                                        ],
+                                    )
+                                ],
+                            ),
+                            frames=frames_list_gen,
                         )
                         fig_anim2 = _aplicar_tema_plotly(fig_anim2)
-                        fig_anim2.update_traces(
-                            hovertemplate='<b>Género</b>: %{x}<br><b>Jugadores concurrentes</b>: %{y:,.0f}<extra></extra>',
-                        )
-                        fig_anim2.update_layout(
-                            yaxis_range=[0, max_jugadores_categoria * 1.1],
-                            margin=dict(b=80, t=50),
-                            height=480,
-                        )
-                        fig_anim2.update_xaxes(title_standoff=30)
-                        if fig_anim2.layout.updatemenus:
-                            fig_anim2.layout.updatemenus[0].y = -0.35
-                        if fig_anim2.layout.sliders:
-                            fig_anim2.layout.sliders[0].y = -0.25
                         with col_anim2:
                             st.plotly_chart(fig_anim2, use_container_width=True)
         st.markdown("---")
