@@ -97,54 +97,63 @@ def render_jugador(df_super=None):
                 perfil = None
 
         if perfil:
-            # --- FILA SUPERIOR: Avatar | Nombre+ID | Métricas [1, 2, 2] ---
-            col_avatar, col_info, col_metrics = st.columns([1, 2, 2])
-            with col_avatar:
-                st.image(perfil.get('avatarfull'), width=150)
-            with col_info:
-                st.subheader(perfil.get('personaname', 'Desconocido'))
-                st.caption(f"ID: {steamid_real}")
-            with col_metrics:
-                if not df_juegos.empty:
-                    horas_totales = int(df_juegos['playtime_forever'].sum() / 60)
-                    m1, m2 = st.columns(2)
-                    m1.metric("🎮 Juegos Totales", len(df_juegos))
-                    m2.metric("⏱️ Horas Totales", f"{horas_totales:,}")
-                else:
-                    st.metric("🎮 Juegos Totales", "—")
+            # --- TARJETA DE IDENTIDAD VIP ---
+            nombre_jugador = perfil.get('personaname', 'Desconocido')
+            avatar_url = perfil.get('avatarfull') or ''
+            loc = perfil.get('loccountrycode') or ''
+            pais = PAISES.get(loc.upper(), loc) if loc else "Privado"
+            nivel = perfil.get('player_level', 0) or 0
+            ts = perfil.get('timecreated') or 0
+            from datetime import datetime
+            anios = max(0, 2026 - datetime.fromtimestamp(ts).year) if ts and ts > 0 else 0
 
-            # --- Widgets Nivel Dios ---
-            w1, w2, w3, w4 = st.columns(4)
-            with w1:
-                loc = perfil.get('loccountrycode') or ''
-                pais = PAISES.get(loc.upper(), loc) if loc else "Privado"
-                st.metric("🌍 Pasaporte Gamer", pais)
-            with w2:
-                nivel = perfil.get('player_level', 0) or 0
-                st.metric("⭐ Prestigio de Cuenta", f"Nivel {nivel}")
-                ts = perfil.get('timecreated') or 0
-                if ts > 0:
-                    from datetime import datetime
-                    anios = 2026 - datetime.fromtimestamp(ts).year
-                    st.caption(f"🎂 Antigüedad: {max(0, anios)} Años")
-            with w3:
-                if not df_juegos.empty and not df_super.empty:
-                    merge_precio = df_juegos[['appid']].merge(
-                        df_super[['appid', 'precio_eur']],
-                        on='appid', how='left'
-                    )
-                    valor = merge_precio['precio_eur'].fillna(0).sum()
-                    st.metric("💸 Valor Estimado", f"{valor:.2f} €")
-                else:
-                    st.metric("💸 Valor Estimado", "—")
-            with w4:
-                if not df_juegos.empty:
-                    sin_tocar = (df_juegos['playtime_forever'] == 0).sum()
-                    total = len(df_juegos)
-                    pct = round(sin_tocar / total * 100, 0) if total > 0 else 0
-                    st.metric("🪦 Pozo de la Vergüenza", f"{sin_tocar} ({int(pct)}%)")
-                else:
-                    st.metric("🪦 Pozo de la Vergüenza", "—")
+            if avatar_url:
+                col_avatar, col_identidad = st.columns([1, 4])
+                with col_avatar:
+                    st.image(avatar_url, width=120)
+                with col_identidad:
+                    st.header(f"🎮 {nombre_jugador}")
+                    st.caption(f"ID: {steamid_real}")
+                    st.markdown(f"**🌍 {pais}** | **⭐ Nivel {nivel}** | **🎂 Antigüedad: {anios} Años**")
+            else:
+                st.header(f"🎮 {nombre_jugador}")
+                st.caption(f"ID: {steamid_real}")
+                st.markdown(f"**🌍 {pais}** | **⭐ Nivel {nivel}** | **🎂 Antigüedad: {anios} Años**")
+
+            # --- FILA DE KPIs (Métricas Principales) ---
+            st.markdown("---")
+            col1, col2, col3, col4 = st.columns(4)
+
+            juegos_totales = len(df_juegos) if df_juegos is not None and not df_juegos.empty else 0
+            horas_totales = int(df_juegos['playtime_forever'].sum() / 60) if df_juegos is not None and not df_juegos.empty else 0
+            valor_estimado = 0.0
+            if df_juegos is not None and not df_juegos.empty and df_super is not None and not df_super.empty:
+                merge_precio = df_juegos[['appid']].merge(
+                    df_super[['appid', 'precio_eur']], on='appid', how='left'
+                )
+                valor_estimado = float(merge_precio['precio_eur'].fillna(0).sum())
+            sin_tocar = (df_juegos['playtime_forever'] == 0).sum() if df_juegos is not None and not df_juegos.empty else 0
+            total_juegos = juegos_totales
+            pct_pozo = round(sin_tocar / total_juegos * 100, 0) if total_juegos and total_juegos > 0 else 0
+
+            def _fmt_miles(n):
+                return f"{int(n):,}".replace(",", ".") if n is not None else "—"
+
+            def _fmt_euros(v):
+                if v is None or (isinstance(v, float) and pd.isna(v)):
+                    return "—"
+                return f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+
+            with col1:
+                st.metric("🕹️ Juegos Totales", _fmt_miles(juegos_totales))
+            with col2:
+                st.metric("⏱️ Horas Totales", _fmt_miles(horas_totales))
+            with col3:
+                valor_str = _fmt_euros(valor_estimado) if (juegos_totales and df_super is not None and not df_super.empty) else "—"
+                st.metric("💸 Valor Estimado", valor_str)
+            with col4:
+                pozo_str = f"{_fmt_miles(sin_tocar)} ({int(pct_pozo)}%)" if total_juegos else "—"
+                st.metric("🪦 Pozo de la Vergüenza", pozo_str)
 
             if df_juegos.empty:
                 st.warning(
