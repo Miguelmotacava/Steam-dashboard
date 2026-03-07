@@ -147,7 +147,7 @@ def render_tendencias(df_super):
     if juegos_sel: df_filtrado = df_filtrado[df_filtrado['nombre'].isin(juegos_sel)]
     if plat_sel != "Todas": df_filtrado = df_filtrado[df_filtrado[plat_sel.lower()] == True]
     if gen_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['generos'].str.contains(gen_sel, na=False)]
-    st.markdown("---")
+    
 
     if not df_filtrado.empty:
         # --- KPIs justo debajo de los filtros ---
@@ -156,7 +156,7 @@ def render_tendencias(df_super):
         kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
         kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
         kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
-        st.markdown("---")
+        
 
         # --- Gráficos con cross-filtering (selección aplica filtro al resto) ---
         col_g1, col_g2 = st.columns(2)
@@ -327,7 +327,7 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
-
+        st.markdown("---")
         st.markdown("### 🛒 Análisis de Precio Histórico")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
         try:
@@ -340,6 +340,7 @@ def render_tendencias(df_super):
                     datos_historicos = None
 
             # --- BLOQUE SUPERIOR: Juego Base ---
+            st.markdown("#### 🎮 Ficha del Juego Base")
             col_info, col_graf = st.columns([1, 2])
             with col_info:
                 precio_actual = float(datos_juego.get('precio_eur', 0) or 0)
@@ -378,8 +379,7 @@ def render_tendencias(df_super):
                 st.plotly_chart(fig_bar_precio, use_container_width=True)
 
             # --- BLOQUE INFERIOR: DLCs ---
-            st.markdown("---")
-            st.markdown("### 🧩 Ecosistema de Expansiones (DLCs)")
+            st.markdown("#### 🧩 Ecosistema de Expansiones (DLCs)")
 
             if datos_juego['dlc_count'] <= 0:
                 st.info("Este juego no tiene DLCs o contenido adicional registrado.")
