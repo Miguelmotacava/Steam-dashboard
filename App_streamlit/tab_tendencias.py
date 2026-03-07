@@ -275,13 +275,13 @@ def render_tendencias(df_super):
                         )
                         fig_anim1.update_layout(
                             xaxis_range=[0, max_jugadores * 1.1],
-                            margin=dict(b=120, l=50, r=50, t=80),
+                            margin=dict(b=200),
                         )
                         fig_anim1.update_xaxes(title_standoff=30)
                         if fig_anim1.layout.updatemenus:
-                            fig_anim1.layout.updatemenus[0].y = -0.25
+                            fig_anim1.layout.updatemenus[0].y = -0.5
                         if fig_anim1.layout.sliders:
-                            fig_anim1.layout.sliders[0].y = -0.25
+                            fig_anim1.layout.sliders[0].y = -0.5
                         st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
@@ -339,13 +339,13 @@ def render_tendencias(df_super):
                         )
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
-                            margin=dict(b=120, l=50, r=50, t=80),
+                            margin=dict(b=200),
                         )
                         fig_anim2.update_xaxes(title_standoff=30)
                         if fig_anim2.layout.updatemenus:
-                            fig_anim2.layout.updatemenus[0].y = -0.25
+                            fig_anim2.layout.updatemenus[0].y = -0.5
                         if fig_anim2.layout.sliders:
-                            fig_anim2.layout.sliders[0].y = -0.25
+                            fig_anim2.layout.sliders[0].y = -0.5
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
