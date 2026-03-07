@@ -215,5 +215,22 @@ def render_noticias(df_super):
                 fig_line.tight_layout(pad=1.2)
                 st.pyplot(fig_line, transparent=True)
                 plt.close(fig_line)
+
+            # Tabla resumen de noticias (al final)
+            st.markdown("---")
+            st.markdown("### Tabla Resumen de Noticias")
+            df_tabla_news = df_news.copy()
+            df_tabla_news['Fecha'] = df_tabla_news['fecha_dt'].dt.strftime('%d/%m/%Y')
+            df_tabla_news['Tipo'] = df_tabla_news['feed_type'].map({0: 'Anuncio', 1: 'Parche'}).fillna('Otro')
+            df_tabla_news['Categoría'] = df_tabla_news['feedlabel'].fillna('Otros')
+            df_mostrar_news = df_tabla_news[['Fecha', 'title', 'url', 'Tipo', 'Categoría']].rename(columns={'title': 'Título', 'url': 'Enlace'})
+            st.dataframe(
+                df_mostrar_news,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    'Enlace': st.column_config.LinkColumn('Enlace', display_text='Ver'),
+                },
+            )
         else:
             st.info("📭 No hay noticias con los filtros aplicados.")

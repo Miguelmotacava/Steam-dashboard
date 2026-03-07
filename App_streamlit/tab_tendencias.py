@@ -352,6 +352,7 @@ def render_tendencias(df_super):
             axis=1
         )
         df_mostrar = pd.DataFrame({
+            'Imagen': df_tabla['header_image'].fillna(''),
             'Ranking': df_tabla['ranking'].astype(int),
             'Nombre': df_tabla['nombre'],
             'Jugadores Actuales': df_tabla['jugadores_actuales'].apply(lambda x: f"{int(x):,}".replace(',', '.')),
@@ -360,4 +361,11 @@ def render_tendencias(df_super):
             'Contenido Adicional': df_tabla['dlc_count'].astype(int),
             'Géneros': df_tabla['generos'].fillna(''),
         })
-        st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_mostrar,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                'Imagen': st.column_config.ImageColumn('Imagen', width='small'),
+            },
+        )
