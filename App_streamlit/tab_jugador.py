@@ -385,133 +385,128 @@ def render_jugador(df_super=None):
                             "Activa la visibilidad de logros en Steam para ver la cronología y el mapa de rareza."
                         )
                     else:
-                        try:
-                            # Métricas sobre los gráficos
-                                total_logros = len(df_logros)
-                            dificultad_media = round(df_logros['Rareza'].mean(), 1)
-                            ultima_fecha = df_logros['Fecha'].max()
-                            ultima_str = ultima_fecha.strftime('%d/%m/%Y') if hasattr(ultima_fecha, 'strftime') else str(ultima_fecha)
+                        # Métricas sobre los gráficos
+                        total_logros = len(df_logros)
+                        dificultad_media = round(df_logros['Rareza'].mean(), 1)
+                        ultima_fecha = df_logros['Fecha'].max()
+                        ultima_str = ultima_fecha.strftime('%d/%m/%Y') if hasattr(ultima_fecha, 'strftime') else str(ultima_fecha)
 
-                            col_m1, col_m2, col_m3 = st.columns(3)
-                            with col_m1:
-                                st.metric("🏆 Logros Ganados", total_logros, help="Total de logros desbloqueados")
-                            with col_m2:
-                                st.metric("📊 Dificultad Media", f"{dificultad_media} %", help="Rareza media de tus logros (menor % = más difícil)")
-                            with col_m3:
-                                st.metric("📅 Último Desafío", ultima_str, help="Fecha del logro más reciente")
+                        col_m1, col_m2, col_m3 = st.columns(3)
+                        with col_m1:
+                            st.metric("🏆 Logros Ganados", total_logros, help="Total de logros desbloqueados")
+                        with col_m2:
+                            st.metric("📊 Dificultad Media", f"{dificultad_media} %", help="Rareza media de tus logros (menor % = más difícil)")
+                        with col_m3:
+                            st.metric("📅 Último Desafío", ultima_str, help="Fecha del logro más reciente")
 
-                            # Fila 1: Línea de vida (acumulativa) + Donut plataformas
-                            col_timeline, col_pie = st.columns([2, 1])
+                        # Fila 1: Línea de vida (acumulativa) + Donut plataformas
+                        col_timeline, col_pie = st.columns([2, 1])
 
-                            with col_timeline:
-                                df_timeline = df_logros[['Fecha', 'Conteo Acumulado', 'Rareza']].copy()
-                                df_timeline['Rareza'] = df_timeline['Rareza'].astype(float)
-                                df_timeline['Conteo Acumulado'] = df_timeline['Conteo Acumulado'].astype(int)
-                                try:
-                                    fig_line = px.line(
-                                        df_timeline,
-                                        x='Fecha',
-                                        y='Conteo Acumulado',
-                                        markers=True,
-                                        color='Rareza',
-                                        color_continuous_scale='Plasma',
-                                        title='📈 Cronología De Progresión (Hitos de Juego)',
-                                        labels={
-                                            'Fecha': 'Fecha de obtención',
-                                            'Conteo Acumulado': 'Logros acumulados',
-                                            'Rareza': 'Rareza (%)',
-                                        },
-                                    )
-                                except (TypeError, ValueError):
-                                    fig_line = px.line(
-                                        df_timeline,
-                                        x='Fecha',
-                                        y='Conteo Acumulado',
-                                        markers=True,
-                                        title='📈 Cronología De Progresión (Hitos de Juego)',
-                                        labels={'Fecha': 'Fecha de obtención', 'Conteo Acumulado': 'Logros acumulados'},
-                                    )
-                                    fig_line.update_traces(line_color=RED_BASE)
-                                fig_line.update_traces(
-                                    line=dict(width=2),
-                                    marker=dict(size=8),
+                        with col_timeline:
+                            df_timeline = df_logros[['Fecha', 'Conteo Acumulado', 'Rareza']].copy()
+                            df_timeline['Rareza'] = df_timeline['Rareza'].astype(float)
+                            df_timeline['Conteo Acumulado'] = df_timeline['Conteo Acumulado'].astype(int)
+                            try:
+                                fig_line = px.line(
+                                    df_timeline,
+                                    x='Fecha',
+                                    y='Conteo Acumulado',
+                                    markers=True,
+                                    color='Rareza',
+                                    color_continuous_scale='Plasma',
+                                    title='📈 Cronología De Progresión (Hitos de Juego)',
+                                    labels={
+                                        'Fecha': 'Fecha de obtención',
+                                        'Conteo Acumulado': 'Logros acumulados',
+                                        'Rareza': 'Rareza (%)',
+                                    },
                                 )
-                                fig_line.update_layout(
-                                    xaxis_title='Fecha de obtención',
-                                    yaxis_title='Logros acumulados',
+                            except (TypeError, ValueError):
+                                fig_line = px.line(
+                                    df_timeline,
+                                    x='Fecha',
+                                    y='Conteo Acumulado',
+                                    markers=True,
+                                    title='📈 Cronología De Progresión (Hitos de Juego)',
+                                    labels={'Fecha': 'Fecha de obtención', 'Conteo Acumulado': 'Logros acumulados'},
                                 )
-                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_line), use_container_width=True)
-
-                            with col_pie:
-                                win, mac, linux_val = False, False, False
-                                if df_super is not None and not df_super.empty and 'appid' in df_super.columns:
-                                    match = df_super[df_super['appid'] == appid_actual]
-                                    if not match.empty:
-                                        win = bool(match.iloc[0].get('windows', False))
-                                        mac = bool(match.iloc[0].get('mac', False))
-                                        linux_val = bool(match.iloc[0].get('linux', False))
-                                if not (win or mac or linux_val):
-                                    win = True
-                                total_h = max(horas_juego, 0.1)
-                                plat_data = []
-                                n_plat = sum([win, mac, linux_val])
-                                if n_plat == 1:
-                                    if win:
-                                        plat_data = [{'Sistema': '🪟 Windows', 'Horas': total_h}]
-                                    elif mac:
-                                        plat_data = [{'Sistema': '🍎 Mac', 'Horas': total_h}]
-                                    else:
-                                        plat_data = [{'Sistema': '🐧 Linux / Steam Deck', 'Horas': total_h}]
-                                else:
-                                    h_w = (total_h * 0.7) if win else 0
-                                    h_m = (total_h * 0.2) if mac else 0
-                                    h_l = (total_h * 0.1) if linux_val else 0
-                                    if win:
-                                        plat_data.append({'Sistema': '🪟 Windows', 'Horas': max(h_w, 0.1)})
-                                    if mac:
-                                        plat_data.append({'Sistema': '🍎 Mac', 'Horas': max(h_m, 0.1)})
-                                    if linux_val:
-                                        plat_data.append({'Sistema': '🐧 Linux / Steam Deck', 'Horas': max(h_l, 0.1)})
-                                df_plat = pd.DataFrame(plat_data)
-                                fig_pie = px.pie(
-                                    df_plat,
-                                    values='Horas',
-                                    names='Sistema',
-                                    hole=0.6,
-                                    title='💻 Plataforma De Uso',
-                                    color_discrete_sequence=[RED_BASE, '#FF8080', '#FFB3B3'],
-                                    labels={'Horas': 'Horas', 'Sistema': 'Sistema'},
-                                )
-                                fig_pie.update_traces(
-                                    hovertemplate='<b>%{label}</b><br>Horas: %{value:.1f}<extra></extra>',
-                                )
-                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_pie), use_container_width=True)
-
-                            # Fila 2: Bubble chart rareza (ancho completo)
-                            df_bubble = df_logros.copy()
-                            df_bubble['Tamaño'] = (100 - df_bubble['Rareza']) + 10
-                            fig_bubble = px.scatter(
-                                df_bubble,
-                                x='Fecha',
-                                y='Rareza',
-                                size='Tamaño',
-                                color='Rareza',
-                                color_continuous_scale='Plasma',
-                                hover_data={'Nombre': True, 'Descripcion': True, 'Fecha': '|%d/%m/%Y', 'Rareza': ':.1f', 'Tamaño': False},
-                                title='🔮 Mapa De Rareza Y Mérito De Logros',
-                                labels={'Fecha': 'Fecha de obtención', 'Rareza': 'Rareza (%)'},
+                                fig_line.update_traces(line_color=RED_BASE)
+                            fig_line.update_traces(
+                                line=dict(width=2),
+                                marker=dict(size=8),
                             )
-                            fig_bubble.update_layout(
+                            fig_line.update_layout(
                                 xaxis_title='Fecha de obtención',
-                                yaxis_title='Rareza (%)',
-                                showlegend=True,
-                                coloraxis_showscale=True,
+                                yaxis_title='Logros acumulados',
                             )
-                            st.plotly_chart(aplicar_tema_oscuro_transparente(fig_bubble), use_container_width=True)
-                        except Exception:
-                            st.warning(
-                                "No se pudieron generar los gráficos de logros para este título. "
-                                "El juego puede no tener logros o los datos no están disponibles."
+                            st.plotly_chart(aplicar_tema_oscuro_transparente(fig_line), use_container_width=True)
+
+                        with col_pie:
+                            win, mac, linux_val = False, False, False
+                            if df_super is not None and not df_super.empty and 'appid' in df_super.columns:
+                                match = df_super[df_super['appid'] == appid_actual]
+                                if not match.empty:
+                                    win = bool(match.iloc[0].get('windows', False))
+                                    mac = bool(match.iloc[0].get('mac', False))
+                                    linux_val = bool(match.iloc[0].get('linux', False))
+                            if not (win or mac or linux_val):
+                                win = True
+                            total_h = max(horas_juego, 0.1)
+                            plat_data = []
+                            n_plat = sum([win, mac, linux_val])
+                            if n_plat == 1:
+                                if win:
+                                    plat_data = [{'Sistema': '🪟 Windows', 'Horas': total_h}]
+                                elif mac:
+                                    plat_data = [{'Sistema': '🍎 Mac', 'Horas': total_h}]
+                                else:
+                                    plat_data = [{'Sistema': '🐧 Linux / Steam Deck', 'Horas': total_h}]
+                            else:
+                                # Reparto estimado por compatibilidad
+                                h_w = (total_h * 0.7) if win else 0
+                                h_m = (total_h * 0.2) if mac else 0
+                                h_l = (total_h * 0.1) if linux_val else 0
+                                if win:
+                                    plat_data.append({'Sistema': '🪟 Windows', 'Horas': max(h_w, 0.1)})
+                                if mac:
+                                    plat_data.append({'Sistema': '🍎 Mac', 'Horas': max(h_m, 0.1)})
+                                if linux_val:
+                                    plat_data.append({'Sistema': '🐧 Linux / Steam Deck', 'Horas': max(h_l, 0.1)})
+                            df_plat = pd.DataFrame(plat_data)
+                            fig_pie = px.pie(
+                                df_plat,
+                                values='Horas',
+                                names='Sistema',
+                                hole=0.6,
+                                title='💻 Plataforma De Uso',
+                                color_discrete_sequence=[RED_BASE, '#FF8080', '#FFB3B3'],
+                                labels={'Horas': 'Horas', 'Sistema': 'Sistema'},
                             )
+                            fig_pie.update_traces(
+                                hovertemplate='<b>%{label}</b><br>Horas: %{value:.1f}<extra></extra>',
+                            )
+                            st.plotly_chart(aplicar_tema_oscuro_transparente(fig_pie), use_container_width=True)
+
+                        # Fila 2: Bubble chart rareza (ancho completo)
+                        df_bubble = df_logros.copy()
+                        df_bubble['Tamaño'] = (100 - df_bubble['Rareza']) + 10  # Más difícil (menor %) = burbuja más grande
+                        fig_bubble = px.scatter(
+                            df_bubble,
+                            x='Fecha',
+                            y='Rareza',
+                            size='Tamaño',
+                            color='Rareza',
+                            color_continuous_scale='Plasma',
+                            hover_data={'Nombre': True, 'Descripcion': True, 'Fecha': '|%d/%m/%Y', 'Rareza': ':.1f', 'Tamaño': False},
+                            title='🔮 Mapa De Rareza Y Mérito De Logros',
+                            labels={'Fecha': 'Fecha de obtención', 'Rareza': 'Rareza (%)'},
+                        )
+                        fig_bubble.update_layout(
+                            xaxis_title='Fecha de obtención',
+                            yaxis_title='Rareza (%)',
+                            showlegend=True,
+                            coloraxis_showscale=True,
+                        )
+                        st.plotly_chart(aplicar_tema_oscuro_transparente(fig_bubble), use_container_width=True)
     elif submit_jugador and input_perfil:
         st.error("❌ Perfil no encontrado o no existe.")
