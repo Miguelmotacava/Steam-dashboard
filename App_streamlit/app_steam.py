@@ -2,7 +2,6 @@ import streamlit as st
 from data_api import load_steam_data
 
 from tab_tendencias import render_tendencias
-from tab_buscador import render_buscador
 from tab_noticias import render_noticias
 from tab_jugador import render_jugador
 
@@ -15,12 +14,12 @@ st.markdown("---")
 
 df_super = load_steam_data(num_juegos)
 
-tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🌌 Buscador Global", "📰 Noticias", "👤 Perfil de Jugador"])
+# El buscador global ha sido eliminado para máxima velocidad
+tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])
 
 if not df_super.empty:
     with tab1: render_tendencias(df_super)
-    with tab2: render_buscador()
-    with tab3: render_noticias(df_super)
-    with tab4: render_jugador()
+    with tab2: render_noticias(df_super)
+    with tab3: render_jugador()
 else:
     st.error("Error crítico: No se ha podido establecer conexión con la base de datos de Steam.")

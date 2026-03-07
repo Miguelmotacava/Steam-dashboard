@@ -34,7 +34,7 @@ def load_steam_data(limite):
     df_jugadores.rename(columns={'concurrent_in_game': 'jugadores_actuales'}, inplace=True)
     
     datos_tienda = []
-    my_bar = st.progress(0, text=f"⏳ Descargando datos comerciales de {limite} juegos...")
+    my_bar = st.progress(0, text=f"⏳ Descargando datos ultrarrápidos de {limite} juegos...")
     for i, appid in enumerate(df_jugadores['appid']):
         try:
             url_store = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=es"
@@ -46,6 +46,7 @@ def load_steam_data(limite):
                     'es_gratis': data.get('is_free', False),
                     'precio_inicial': data.get('price_overview', {}).get('initial', 0) / 100 if not data.get('is_free', False) else 0.0,
                     'precio_eur': data.get('price_overview', {}).get('final', 0) / 100 if not data.get('is_free', False) else 0.0,
+                    'fecha_salida': data.get('release_date', {}).get('date', ''), # NUEVO: Fecha real
                     'dlc_count': len(data.get('dlc', [])),
                     'metacritic_nota': data.get('metacritic', {}).get('score', None),
                     'windows': data.get('platforms', {}).get('windows', False),
@@ -55,20 +56,9 @@ def load_steam_data(limite):
                 })
         except: pass 
         time.sleep(1.2)
-        my_bar.progress((i + 1) / len(df_jugadores), text=f"⏳ Descargando datos comerciales...")
+        my_bar.progress((i + 1) / len(df_jugadores), text=f"⏳ Analizando mercado...")
     my_bar.empty()
     return pd.merge(pd.DataFrame(datos_tienda), df_jugadores, on='appid', how='inner')
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_all_apps():
-    try:
-        url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-        res = requests.get(url).json()
-        df = pd.DataFrame(res.get('applist', {}).get('apps', []))
-        df = df.dropna(subset=['name'])
-        df['name'] = df['name'].astype(str)
-        return df[df['name'].str.strip() != '']
-    except: return pd.DataFrame()
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_news_data(appid):

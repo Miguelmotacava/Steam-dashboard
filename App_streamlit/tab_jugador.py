@@ -31,7 +31,7 @@ def render_jugador():
                 st.subheader(perfil.get('personaname', 'Desconocido'))
                 
                 if df_juegos.empty:
-                    st.warning("⚠️ **ATENCIÓN:** Tu perfil es público, pero tus 'Detalles de los Juegos' están configurados como Privados en Steam. Ve a tu perfil de Steam > Modificar Perfil > Configuración de Privacidad > Pon 'Detalles de los juegos' en Público para ver tus gráficas.")
+                    st.warning("⚠️ **ATENCIÓN:** Tu perfil general es público, pero tus 'Detalles de los Juegos' están configurados como Privados. Ve a tu cuenta de Steam > Modificar Perfil > Configuración de Privacidad > Pon 'Detalles de los juegos' en Público.")
                 else:
                     st.write(f"🎮 **Juegos Extraídos:** {len(df_juegos)}")
                     st.write(f"⏱️ **Horas Totales:** {int(df_juegos['playtime_forever'].sum()/60):,}")

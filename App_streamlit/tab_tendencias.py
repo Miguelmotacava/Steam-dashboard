@@ -5,11 +5,29 @@ import plotly.express as px
 RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 
-def generar_grafico_precio(precio_ini, precio_fin, nombre):
-    fechas = pd.date_range(end=pd.Timestamp.today(), periods=6, freq='ME')
-    precios = [precio_ini, precio_ini, precio_ini, precio_fin, precio_fin, precio_fin]
-    fig = px.line(pd.DataFrame({'Fecha': fechas, 'Precio': precios}), x='Fecha', y='Precio', title=f'📈 Evolución del Precio', markers=True, labels={'Precio': 'Euros (€)'}, color_discrete_sequence=[RED_BASE])
-    fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10])
+def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida):
+    """Genera la gráfica conectando el día de lanzamiento real con el día de hoy"""
+    hoy = pd.Timestamp.today().strftime('%Y-%m-%d')
+    
+    # Si la fecha de salida falla, ponemos 'Lanzamiento' como texto genérico
+    try:
+        inicio = pd.to_datetime(fecha_salida).strftime('%Y-%m-%d')
+    except:
+        inicio = "Día de Lanzamiento"
+
+    df_hist = pd.DataFrame({
+        'Momento': [inicio, hoy],
+        'Precio': [precio_ini, precio_fin],
+        'Etiqueta': ['Salida', 'Hoy']
+    })
+    
+    fig = px.line(df_hist, x='Momento', y='Precio', title=f'📉 Evolución Real del Precio', 
+                  markers=True, text='Etiqueta', labels={'Precio': 'Euros (€)', 'Momento': 'Fechas'}, 
+                  color_discrete_sequence=[RED_BASE])
+    fig.update_traces(textposition="top center")
+    
+    max_p = max(precio_ini, precio_fin)
+    fig.update_layout(yaxis_range=[0, max_p + (max_p * 0.2) + 5])
     return fig
 
 def render_tendencias(df_super):
@@ -67,4 +85,4 @@ def render_tendencias(df_super):
             st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
             st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
         with col_d2:
-            st.plotly_chart(generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis), use_container_width=True)
+            st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida']), use_container_width=True)
