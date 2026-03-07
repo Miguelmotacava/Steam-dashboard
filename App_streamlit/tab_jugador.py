@@ -281,7 +281,7 @@ def render_jugador(df_super=None):
                 fig_donut = go.Figure(
                     data=[
                         go.Pie(
-                            labels=['Jugados', 'Backlog (0h)'],
+                            labels=['Jugados', 'Sin Jugar (0h)'],
                             values=[juegos_jugados, juegos_backlog],
                             hole=0.6,
                             marker_colors=[RED_BASE, GRIS_OSCURO],

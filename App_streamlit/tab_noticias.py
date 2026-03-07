@@ -43,7 +43,7 @@ def render_noticias(df_super):
             index=1,
         )
     with col_n3:
-        tipo_noticia = st.radio("🛠️ Tipo:", ["Todo", "Parches", "Anuncios"])
+        tipo_noticia = st.radio("📄 Tipo:", ["Todo", "Parches", "Anuncios"])
 
     appid_elegido = df_super[df_super['nombre'] == juego_elegido]['appid'].iloc[0]
     df_news = load_news_data(appid_elegido)
