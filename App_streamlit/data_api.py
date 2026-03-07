@@ -7,9 +7,9 @@ import re
 from dotenv import load_dotenv
 
 # Cargar .env desde distintas rutas posibles
-load_dotenv(".env")
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(".env", override=True)
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
 
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 
