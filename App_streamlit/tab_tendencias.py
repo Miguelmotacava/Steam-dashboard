@@ -124,7 +124,7 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
     
     max_p = max(precios) if precios else max(precio_ini, precio_fin)
     fig.update_layout(
-        title=f'📉 Evolución Real del Precio',
+        title=f'📉 Evolución del Precio (Título)',
         yaxis_range=[0, max_p + (max_p * 0.3) + 2],
         xaxis_title='Fecha',
         yaxis_title='Precio (€)',
@@ -543,7 +543,7 @@ def render_tendencias(df_super):
 
                 col_dlc_info, col_dlc_graf = st.columns([1, 2])
                 with col_dlc_info:
-                    st.markdown("#### 🧩 Ecosistema de Expansiones (DLCs)")
+                    st.markdown("#### 🧩 Ecosistema de Expansiones")
                     total_dlcs = len(df_dlc)
                     precio_medio = df_dlc['precio_eur'].mean()
                     fecha_primera = df_dlc_con_fecha['fecha_dt'].min()
