@@ -178,7 +178,7 @@ def render_jugador(df_super=None):
                         color_discrete_sequence=[RED_BASE],
                         labels={'horas': 'Tiempo Invertido (Horas)', 'name': 'Videojuego'},
                     )
-                    fig_bar.update_traces(hovertemplate='<b>%{y}</b><br>Tiempo Invertido: %{x:.1f} Horas<extra></extra>')
+                    fig_bar.update_traces(hovertemplate='<b>Videojuego</b>: %{y}<br><b>Tiempo invertido</b>: %{x:.1f} h<extra></extra>')
                     st.plotly_chart(
                         aplicar_tema_oscuro_transparente(fig_bar),
                         use_container_width=True,
@@ -212,7 +212,7 @@ def render_jugador(df_super=None):
                         fig_radar.update_traces(
                             fill='toself',
                             fillcolor='rgba(255, 75, 75, 0.4)',
-                            hovertemplate='<b>%{theta}</b><br>Afinidad Relativa: %{r:.1f} %<extra></extra>',
+                            hovertemplate='<b>Género</b>: %{theta}<br><b>Afinidad relativa</b>: %{r:.1f} %<extra></extra>',
                         )
                         st.plotly_chart(
                             aplicar_tema_oscuro_transparente(fig_radar, es_radar=True),
@@ -247,7 +247,7 @@ def render_jugador(df_super=None):
                             },
                         )
                         fig_sunburst.update_traces(
-                            hovertemplate='<b>%{label}</b><br>Tiempo Invertido: %{value:.1f} Horas<br>Porcentaje: %{percentParent:.1%}<extra></extra>',
+                            hovertemplate='<b>Elemento</b>: %{label}<br><b>Tiempo invertido</b>: %{value:.1f} h<br><b>Porcentaje del total</b>: %{percentParent:.1%}<extra></extra>',
                         )
                         st.plotly_chart(
                             aplicar_tema_oscuro_transparente(fig_sunburst),
@@ -268,7 +268,7 @@ def render_jugador(df_super=None):
                                 marker_colors=[RED_BASE, GRIS_OSCURO],
                                 textinfo='label+percent',
                                 textfont=dict(color='white'),
-                                hovertemplate='<b>%{label}</b><br>Juegos: %{value}<br>Porcentaje: %{percent}<extra></extra>',
+                                hovertemplate='<b>Estado</b>: %{label}<br><b>Nº de juegos</b>: %{value}<br><b>Porcentaje</b>: %{percent}<extra></extra>',
                             )
                         ]
                     )
@@ -293,7 +293,7 @@ def render_jugador(df_super=None):
                     fig_treemap.update_traces(
                         marker=dict(cornerradius=4),
                         textinfo='label+value+percent parent',
-                        hovertemplate='<b>%{label}</b><br>Tiempo Invertido: %{value:.1f} Horas<br>Porcentaje: %{percentParent:.1%}<extra></extra>',
+                        hovertemplate='<b>Videojuego</b>: %{label}<br><b>Tiempo invertido</b>: %{value:.1f} h<br><b>Porcentaje del total</b>: %{percentParent:.1%}<extra></extra>',
                     )
                     st.plotly_chart(
                         aplicar_tema_oscuro_transparente(fig_treemap),
@@ -342,7 +342,7 @@ def render_jugador(df_super=None):
                                 labels={
                                     'año': 'Año De Lanzamiento (Tiempo)',
                                     'genero_principal': 'Género Principal (Tipo)',
-                                    'precio_eur': 'Inversión (Euros)',
+                                    'precio_eur': 'Inversión (€)',
                                 },
                             )
                             fig_heat = aplicar_tema_oscuro_transparente(fig_heat)
@@ -369,7 +369,7 @@ def render_jugador(df_super=None):
                                 },
                             )
                             fig_strip.update_traces(
-                                hovertemplate='<b>%{hovertext}</b><br>Modelo: %{x}<br>Tiempo: %{y:.1f} Horas<extra></extra>',
+                                hovertemplate='<b>Videojuego</b>: %{hovertext}<br><b>Modelo de negocio</b>: %{x}<br><b>Tiempo jugado</b>: %{y:.1f} h<extra></extra>',
                             )
                             fig_strip = aplicar_tema_oscuro_transparente(fig_strip)
                             st.plotly_chart(fig_strip, use_container_width=True)

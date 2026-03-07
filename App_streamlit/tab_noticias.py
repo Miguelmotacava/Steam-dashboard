@@ -145,7 +145,7 @@ def render_noticias(df_super):
                         'categoria': 'Categoría De La Noticia',
                     },
                 )
-                fig_cats.update_traces(hovertemplate='<b>%{y}</b><br>Publicaciones: %{x}<extra></extra>')
+                fig_cats.update_traces(hovertemplate='<b>Categoría</b>: %{y}<br><b>Nº de publicaciones</b>: %{x}<extra></extra>')
                 fig_cats = aplicar_tema_oscuro_transparente(fig_cats)
                 st.plotly_chart(fig_cats, use_container_width=True)
 
@@ -176,7 +176,7 @@ def render_noticias(df_super):
                     fig_tipo.update_traces(
                         textinfo='percent+label',
                         textposition='outside',
-                        hovertemplate='<b>%{label}</b><br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>',
+                        hovertemplate='<b>Tipo de noticia</b>: %{label}<br><b>Cantidad</b>: %{value}<br><b>Porcentaje</b>: %{percent}<extra></extra>',
                     )
                     fig_tipo = aplicar_tema_oscuro_transparente(fig_tipo)
                     st.plotly_chart(fig_tipo, use_container_width=True)

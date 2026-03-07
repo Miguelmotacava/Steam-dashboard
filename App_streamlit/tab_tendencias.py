@@ -104,7 +104,7 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
         text=etiquetas,
         textposition='top center',
         name='Precio',
-        hovertemplate='Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
+        hovertemplate='<b>Fecha</b>: %{x|%d/%m/%Y}<br><b>Precio</b>: %{y:.2f} €<extra></extra>',
     ))
 
     # Línea base para el mínimo si existe
@@ -117,7 +117,7 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
         title=f'📉 Evolución Real del Precio',
         yaxis_range=[0, max_p + (max_p * 0.3) + 2],
         xaxis_title='Fecha (Tiempo)',
-        yaxis_title='Precio (Euros)',
+        yaxis_title='Precio (€)',
         showlegend=False
     )
     return fig
@@ -169,13 +169,13 @@ def render_tendencias(df_super):
                 title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE],
                 labels={'jugadores_actuales': 'Jugadores Concurrentes (Unidades)', 'nombre': 'Videojuego'},
             )
-            fig1.update_traces(hovertemplate='<b>%{y}</b><br>Jugadores: %{x:,.0f}<extra></extra>')
+            fig1.update_traces(hovertemplate='<b>Videojuego</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>')
             evt1 = st.plotly_chart(fig1, use_container_width=True, on_select='rerun', key='bar_top10', selection_mode='points')
             sel_bar = _extraer_seleccion(evt1)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
             fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
-            fig2.update_traces(textinfo='label+value+percent parent', hovertemplate='<b>%{label}</b><br>Jugadores: %{value:,.0f}<br>Porcentaje: %{percentParent:.1%}<extra></extra>')
+            fig2.update_traces(textinfo='label+value+percent parent', hovertemplate='<b>Género</b>: %{label}<br><b>Jugadores concurrentes</b>: %{value:,.0f}<br><b>Porcentaje del total</b>: %{percentParent:.1%}<extra></extra>')
             evt2 = st.plotly_chart(fig2, use_container_width=True, on_select='rerun', key='treemap_gen', selection_mode='points')
             sel_treemap = _extraer_seleccion(evt2)
 
@@ -183,7 +183,7 @@ def render_tendencias(df_super):
         with col_g3:
             df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
             fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistemas', color='SO', color_discrete_map=RED_DONUT)
-            fig3.update_traces(hovertemplate='<b>%{label}</b><br>Compatibles: %{value}<extra></extra>')
+            fig3.update_traces(hovertemplate='<b>Plataforma</b>: %{label}<br><b>Juegos compatibles</b>: %{value}<extra></extra>')
             st.plotly_chart(fig3, use_container_width=True)
         with col_g4:
             df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
@@ -192,11 +192,11 @@ def render_tendencias(df_super):
                     df_scat, x='precio_eur', y='metacritic_nota',
                     size='jugadores_actuales', hover_name='nombre',
                     title='💎 Precio vs Calidad (Metacritic)', color='nombre',
-                    labels={'precio_eur': 'Precio (Euros)', 'metacritic_nota': 'Nota Metacritic'},
+                    labels={'precio_eur': 'Precio (€)', 'metacritic_nota': 'Nota Metacritic'},
                 )
                 fig4.update_traces(
                     customdata=df_scat['jugadores_actuales'],
-                    hovertemplate='<b>%{hovertext}</b><br>Precio: %{x:.2f} €<br>Nota Metacritic: %{y}<br>Jugadores: %{customdata:,.0f}<extra></extra>',
+                    hovertemplate='<b>Videojuego</b>: %{hovertext}<br><b>Precio actual</b>: %{x:.2f} €<br><b>Nota Metacritic</b>: %{y}<br><b>Jugadores concurrentes</b>: %{customdata:,.0f}<extra></extra>',
                 )
                 evt4 = st.plotly_chart(fig4, use_container_width=True, on_select='rerun', key='scatter_metacritic', selection_mode='points')
                 sel_scatter = _extraer_seleccion(evt4)
@@ -241,7 +241,7 @@ def render_tendencias(df_super):
                             },
                         )
                         fig_line.update_traces(
-                            hovertemplate='<b>%{fullData.name}</b><br>Fecha: %{x|%d/%m/%Y}<br>Jugadores: %{y:,.0f}<extra></extra>',
+                            hovertemplate='<b>Videojuego</b>: %{fullData.name}<br><b>Fecha</b>: %{x|%d/%m/%Y}<br><b>Jugadores concurrentes</b>: %{y:,.0f}<extra></extra>',
                         )
                         fig_line = _aplicar_tema_plotly(fig_line)
                         st.plotly_chart(fig_line, use_container_width=True)
@@ -270,6 +270,9 @@ def render_tendencias(df_super):
                             },
                         )
                         fig_anim1 = _aplicar_tema_plotly(fig_anim1)
+                        fig_anim1.update_traces(
+                            hovertemplate='<b>Videojuego</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>',
+                        )
                         fig_anim1.update_layout(
                             xaxis_range=[0, max_jugadores * 1.1],
                             margin=dict(b=200),
@@ -307,7 +310,7 @@ def render_tendencias(df_super):
                         )
                         st.write("")
                         fig_area.update_traces(
-                            hovertemplate='<b>%{fullData.name}</b><br>Fecha: %{x|%d/%m/%Y}<br>Jugadores: %{y:,.0f}<extra></extra>',
+                            hovertemplate='<b>Género</b>: %{fullData.name}<br><b>Fecha</b>: %{x|%d/%m/%Y}<br><b>Jugadores concurrentes</b>: %{y:,.0f}<extra></extra>',
                         )
                         fig_area = _aplicar_tema_plotly(fig_area)
                         st.plotly_chart(fig_area, use_container_width=True)
@@ -331,6 +334,9 @@ def render_tendencias(df_super):
                             },
                         )
                         fig_anim2 = _aplicar_tema_plotly(fig_anim2)
+                        fig_anim2.update_traces(
+                            hovertemplate='<b>Género</b>: %{x}<br><b>Jugadores concurrentes</b>: %{y:,.0f}<extra></extra>',
+                        )
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
                             margin=dict(b=200),
@@ -466,14 +472,14 @@ def render_tendencias(df_super):
                         },
                         labels={
                             'fecha_dt': 'Fecha De Lanzamiento (Tiempo)',
-                            'precio_eur': 'Precio Actual (Euros)',
+                            'precio_eur': 'Precio Actual (€)',
                             'nombre': 'Contenido',
                             'Categoria_DLC': 'Categoría (Tipo)',
                         },
                     )
                     fig_dlc.update_traces(
                         marker=dict(size=12),
-                        hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
+                        hovertemplate='<b>Contenido adicional</b>: %{hovertext}<br><b>Fecha de lanzamiento</b>: %{x|%d/%m/%Y}<br><b>Precio</b>: %{y:.2f} €<extra></extra>',
                     )
                     fig_dlc = _aplicar_tema_plotly(fig_dlc)
                     max_precio = df_dlc_con_fecha['precio_eur'].max()
