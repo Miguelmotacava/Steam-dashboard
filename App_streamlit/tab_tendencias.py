@@ -299,13 +299,13 @@ def render_tendencias(df_super):
                                 categoryorder='array',
                                 categoryarray=frames_list[0].layout.yaxis.categoryarray if frames_list else [],
                             ),
-                            margin=dict(b=80, t=50),
+                            margin=dict(b=120, t=50),
                             height=480,
                             updatemenus=[
                                 dict(
                                     type='buttons',
                                     showactive=False,
-                                    y=-0.38,
+                                    y=-0.52,
                                     x=0.5,
                                     xanchor='center',
                                     buttons=[
@@ -321,10 +321,10 @@ def render_tendencias(df_super):
                             sliders=[
                                 dict(
                                     active=0,
-                                    y=-0.22,
+                                    y=-0.18,
                                     len=0.9,
                                     xanchor='center',
-                                    pad=dict(b=10, t=0),
+                                    pad=dict(b=15, t=0),
                                     currentvalue=dict(prefix='Fecha: ', visible=True, xanchor='center'),
                                     steps=[
                                         dict(args=[[hf], dict(frame=dict(duration=0, redraw=True), mode='immediate')], label=hf[:12] if len(str(hf)) > 12 else hf, method='animate')
@@ -414,13 +414,13 @@ def render_tendencias(df_super):
                                     categoryorder='array',
                                     categoryarray=frames_list_gen[0].layout.yaxis.categoryarray if frames_list_gen else [],
                                 ),
-                                margin=dict(b=80, t=50),
+                                margin=dict(b=120, t=50),
                                 height=480,
                                 updatemenus=[
                                     dict(
                                         type='buttons',
                                         showactive=False,
-                                        y=-0.38,
+                                        y=-0.52,
                                         x=0.5,
                                         xanchor='center',
                                         buttons=[
@@ -436,10 +436,10 @@ def render_tendencias(df_super):
                                 sliders=[
                                     dict(
                                         active=0,
-                                        y=-0.22,
+                                        y=-0.18,
                                         len=0.9,
                                         xanchor='center',
-                                        pad=dict(b=10, t=0),
+                                        pad=dict(b=15, t=0),
                                         currentvalue=dict(prefix='Fecha: ', visible=True, xanchor='center'),
                                         steps=[
                                             dict(args=[[hf], dict(frame=dict(duration=0, redraw=True), mode='immediate')], label=hf[:12] if len(str(hf)) > 12 else hf, method='animate')
