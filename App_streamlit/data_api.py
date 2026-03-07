@@ -196,6 +196,15 @@ def load_news_data(appid):
         return df_noticias
     except: return pd.DataFrame()
 
+def _fetch_player_badges(steamid, steam_api_key):
+    """Obtiene player_level del endpoint GetBadges."""
+    try:
+        url = f"https://api.steampowered.com/IPlayerService/GetBadges/v1/?key={steam_api_key}&steamid={steamid}"
+        res = requests.get(url, timeout=10).json()
+        return res.get('response', {}).get('player_level', 0)
+    except Exception:
+        return 0
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_user_profile(steamid):
     steam_api_key = get_api_key()
@@ -211,6 +220,11 @@ def fetch_user_profile(steamid):
         raise RuntimeError(f"Error conectando a Steam API: {e}")
 
     if not perfil: raise ValueError("El perfil devuelto está vacío")
+    p = perfil[0]
+    p['loccountrycode'] = p.get('loccountrycode') or ''
+    p['timecreated'] = p.get('timecreated') or 0
+    p['player_level'] = _fetch_player_badges(steamid, steam_api_key)
+    perfil[0] = p
     df_juegos = pd.DataFrame(juegos)
     
     if 'playtime_forever' not in df_juegos.columns or df_juegos.empty: 

@@ -217,6 +217,7 @@ def render_tendencias(df_super):
                 how='inner',
             )
             if not df_hist_merge.empty:
+                df_hist_merge['Hora_Frame'] = pd.to_datetime(df_hist_merge['Fecha']).dt.strftime('%d/%m %H:%M')
                 st.markdown("---")
                 st.markdown("### 📊 Evolución Histórica de Jugadores")
 
@@ -235,7 +236,7 @@ def render_tendencias(df_super):
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'nombre': 'Videojuego (Nombre)',
+                                'nombre': 'Videojuego',
                             },
                         )
                         fig_line.update_traces(
@@ -245,7 +246,8 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_line, use_container_width=True)
 
                         # Animación 1: Carrera de Juegos
-                        df_anim_top10 = df_line_top10.sort_values('Fecha')
+                        df_anim_top10 = df_line_top10.sort_values('Fecha').copy()
+                        df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
                         max_jugadores = df_anim_top10['jugadores_historicos'].max()
                         fig_anim1 = px.bar(
                             df_anim_top10,
@@ -253,13 +255,13 @@ def render_tendencias(df_super):
                             y='nombre',
                             orientation='h',
                             color='nombre',
-                            animation_frame='Fecha',
-                            title='Carrera De Jugadores Concurrentes (Animación En Vivo)',
+                            animation_frame='Hora_Frame',
+                            title='🏃 Carrera De Jugadores Concurrentes (Animación En Vivo)',
                             color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'nombre': 'Videojuego (Nombre)',
-                                'Fecha': 'Fecha De Registro (Tiempo)',
+                                'nombre': 'Videojuego',
+                                'Hora_Frame': 'Fecha De Registro (Tiempo)',
                             },
                         )
                         fig_anim1.update_layout(xaxis_range=[0, max_jugadores * 1.1])
@@ -287,7 +289,7 @@ def render_tendencias(df_super):
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'genero': 'Género (Categoría)',
+                                'genero': 'Género',
                             },
                         )
                         fig_area.update_traces(
@@ -297,20 +299,21 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_area, use_container_width=True)
 
                         # Animación 2: Evolución de Categorías
-                        df_anim_gen = df_gen_hist.sort_values('Fecha')
+                        df_anim_gen = df_gen_hist.sort_values('Fecha').copy()
+                        df_anim_gen['Hora_Frame'] = pd.to_datetime(df_anim_gen['Fecha']).dt.strftime('%d/%m %H:%M')
                         max_jugadores_categoria = df_anim_gen['jugadores_historicos'].max()
                         fig_anim2 = px.bar(
                             df_anim_gen,
                             x='genero',
                             y='jugadores_historicos',
                             color='genero',
-                            animation_frame='Fecha',
-                            title='Evolución De Jugadores Por Categoría (Animación En Vivo)',
+                            animation_frame='Hora_Frame',
+                            title='📊 Evolución De Jugadores Por Categoría (Animación En Vivo)',
                             color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
-                                'genero': 'Género (Categoría)',
+                                'genero': 'Género',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'Fecha': 'Fecha De Registro (Tiempo)',
+                                'Hora_Frame': 'Fecha De Registro (Tiempo)',
                             },
                         )
                         fig_anim2.update_layout(yaxis_range=[0, max_jugadores_categoria * 1.1])

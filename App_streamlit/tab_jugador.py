@@ -60,7 +60,16 @@ def aplicar_tema_oscuro_transparente(fig, es_radar=False):
     return fig
 
 
-def render_jugador():
+PAISES = {
+    'ES': 'España', 'US': 'Estados Unidos', 'GB': 'Reino Unido', 'DE': 'Alemania', 'FR': 'Francia',
+    'IT': 'Italia', 'RU': 'Rusia', 'BR': 'Brasil', 'AR': 'Argentina', 'MX': 'México', 'CL': 'Chile',
+    'CO': 'Colombia', 'PE': 'Perú', 'PT': 'Portugal', 'NL': 'Países Bajos', 'PL': 'Polonia',
+    'JP': 'Japón', 'KR': 'Corea del Sur', 'CN': 'China', 'AU': 'Australia', 'CA': 'Canadá',
+}
+
+def render_jugador(df_super=None):
+    if df_super is None:
+        df_super = pd.DataFrame()
     st.header("👤 Análisis de ADN de Jugador")
     st.write("Pega tu SteamID64 o la **URL completa** de tu perfil público.")
 
@@ -104,6 +113,39 @@ def render_jugador():
                 else:
                     st.metric("🎮 Juegos Totales", "—")
 
+            # --- Widgets Nivel Dios ---
+            w1, w2, w3, w4 = st.columns(4)
+            with w1:
+                loc = perfil.get('loccountrycode') or ''
+                pais = PAISES.get(loc.upper(), loc) if loc else "Privado"
+                st.metric("🌍 Pasaporte Gamer", pais)
+            with w2:
+                nivel = perfil.get('player_level', 0) or 0
+                st.metric("⭐ Prestigio de Cuenta", f"Nivel {nivel}")
+                ts = perfil.get('timecreated') or 0
+                if ts > 0:
+                    from datetime import datetime
+                    anios = 2026 - datetime.fromtimestamp(ts).year
+                    st.caption(f"🎂 Antigüedad: {max(0, anios)} Años")
+            with w3:
+                if not df_juegos.empty and not df_super.empty:
+                    merge_precio = df_juegos[['appid']].merge(
+                        df_super[['appid', 'precio_eur']],
+                        on='appid', how='left'
+                    )
+                    valor = merge_precio['precio_eur'].fillna(0).sum()
+                    st.metric("💸 Valor Estimado", f"{valor:.2f} €")
+                else:
+                    st.metric("💸 Valor Estimado", "—")
+            with w4:
+                if not df_juegos.empty:
+                    sin_tocar = (df_juegos['playtime_forever'] == 0).sum()
+                    total = len(df_juegos)
+                    pct = round(sin_tocar / total * 100, 0) if total > 0 else 0
+                    st.metric("🪦 Pozo de la Vergüenza", f"{sin_tocar} ({int(pct)}%)")
+                else:
+                    st.metric("🪦 Pozo de la Vergüenza", "—")
+
             if df_juegos.empty:
                 st.warning(
                     "⚠️ **ATENCIÓN:** Tu perfil general es público, pero tus 'Detalles de los Juegos' "
@@ -125,7 +167,7 @@ def render_jugador():
                         orientation='h',
                         title='🏆 Top 10 Juegos por Horas',
                         color_discrete_sequence=[RED_BASE],
-                        labels={'horas': 'Tiempo Invertido (Horas)', 'name': 'Videojuego (Nombre)'},
+                        labels={'horas': 'Tiempo Invertido (Horas)', 'name': 'Videojuego'},
                     )
                     fig_bar.update_traces(hovertemplate='<b>%{y}</b><br>Tiempo Invertido: %{x:.1f} Horas<extra></extra>')
                     st.plotly_chart(
@@ -155,7 +197,7 @@ def render_jugador():
                             range_r=[0, 100],
                             labels={
                                 'afinidad_relativa': 'Afinidad Relativa (%)',
-                                'genero': 'Género (Categoría)',
+                                'genero': 'Género',
                             },
                         )
                         fig_radar.update_traces(
@@ -220,7 +262,7 @@ def render_jugador():
                         use_container_width=True,
                     )
 
-                # --- FILA: Sunburst Distribución Del Tiempo ---
+                # --- FILA: Sunburst Distribución Del Tiempo De Vida (Sistema Solar) ---
                 df_sunburst = df_juegos[df_juegos['playtime_forever'] > 0].copy()
                 df_sunburst['horas'] = df_sunburst['playtime_forever'] / 60
                 df_sunburst = df_sunburst.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
@@ -233,11 +275,11 @@ def render_jugador():
                         df_sunburst,
                         path=['categoria_anillo', 'name'],
                         values='horas',
-                        title='Distribución Del Tiempo De Vida (Sistema Solar)',
+                        title='☀️ Distribución Del Tiempo De Vida (Sistema Solar)',
                         color_discrete_sequence=[RED_BASE],
                         labels={
                             'horas': 'Tiempo Invertido (Horas)',
-                            'name': 'Videojuego (Nombre)',
+                            'name': 'Videojuego',
                             'categoria_anillo': 'Categoría',
                         },
                     )

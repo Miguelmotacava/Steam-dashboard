@@ -142,7 +142,7 @@ def render_noticias(df_super):
                     color_discrete_sequence=[RED_BASE],
                     labels={
                         'cantidad': 'Número De Publicaciones (Unidades)',
-                        'categoria': 'Categoría De La Noticia (Tipo)',
+                        'categoria': 'Categoría De La Noticia',
                     },
                 )
                 fig_cats.update_traces(hovertemplate='<b>%{y}</b><br>Publicaciones: %{x}<extra></extra>')

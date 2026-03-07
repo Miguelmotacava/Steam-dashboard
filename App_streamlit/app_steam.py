@@ -25,8 +25,8 @@ tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de 
 if not df_super.empty:
     with tab1: render_tendencias(df_super)
     with tab2: render_noticias(df_super)
-    with tab3: render_jugador()
+    with tab3: render_jugador(df_super)
 else:
     st.warning("⚠️ No se pudo cargar el mercado global. **En Streamlit Cloud:** ve a *Manage app* → *Settings* → *Secrets* y añade: `STEAM_API_KEY = \"tu_clave\"`")
     st.info("💡 Mientras tanto, puedes usar la pestaña **Perfil de Jugador** para analizar tu biblioteca de Steam.")
-    with tab3: render_jugador()
+    with tab3: render_jugador(pd.DataFrame())
