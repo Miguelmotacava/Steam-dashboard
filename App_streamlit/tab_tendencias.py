@@ -126,7 +126,7 @@ def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, da
     fig.update_layout(
         title=f'📉 Evolución Real del Precio',
         yaxis_range=[0, max_p + (max_p * 0.3) + 2],
-        xaxis_title='Fecha (Tiempo)',
+        xaxis_title='Fecha',
         yaxis_title='Precio (€)',
         showlegend=False
     )
@@ -177,14 +177,14 @@ def render_tendencias(df_super):
                 df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'),
                 x='jugadores_actuales', y='nombre', orientation='h',
                 title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE],
-                labels={'jugadores_actuales': 'Jugadores Concurrentes (Unidades)', 'nombre': 'Videojuego'},
+                labels={'jugadores_actuales': 'Jugadores Concurrentes', 'nombre': 'Videojuego'},
             )
             fig1.update_traces(hovertemplate='<b>Videojuego</b>: %{y}<br><b>Jugadores concurrentes</b>: %{x:,.0f}<extra></extra>')
             evt1 = st.plotly_chart(fig1, use_container_width=True, on_select='rerun', key='bar_top10', selection_mode='points')
             sel_bar = _extraer_seleccion(evt1)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
-            fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
+            fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE, labels={'jugadores_actuales': 'Jugadores Concurrentes'})
             fig2.update_traces(textinfo='label+value+percent parent', hovertemplate='<b>Género</b>: %{label}<br><b>Jugadores concurrentes</b>: %{value:,.0f}<br><b>Porcentaje del total</b>: %{percentParent:.1%}<extra></extra>')
             evt2 = st.plotly_chart(fig2, use_container_width=True, on_select='rerun', key='treemap_gen', selection_mode='points')
             sel_treemap = _extraer_seleccion(evt2)
@@ -245,8 +245,8 @@ def render_tendencias(df_super):
                             title='📈 Evolución Por Número de Jugadores Concurrentes En El Tiempo',
                             color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
-                                'Fecha': 'Fecha De Registro (Tiempo)',
-                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'Fecha': 'Fecha De Registro',
+                                'jugadores_historicos': 'Jugadores Concurrentes',
                                 'nombre': 'Videojuego',
                             },
                         )
@@ -293,7 +293,7 @@ def render_tendencias(df_super):
                         data=frames_list[0].data if frames_list else [],
                         layout=go.Layout(
                             title='🏃 Carrera De Jugadores Concurrentes (Animación En Vivo)',
-                            xaxis=dict(title='Jugadores Concurrentes (Unidades)', range=[0, max_jugadores * 1.1]),
+                            xaxis=dict(title='Jugadores Concurrentes', range=[0, max_jugadores * 1.1]),
                             yaxis=dict(
                                 title='Videojuego',
                                 categoryorder='array',
@@ -356,8 +356,8 @@ def render_tendencias(df_super):
                             title='📊 Evolución Por Género En El Tiempo',
                             color_discrete_sequence=px.colors.qualitative.Vivid,
                             labels={
-                                'Fecha': 'Fecha De Registro (Tiempo)',
-                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'Fecha': 'Fecha De Registro',
+                                'jugadores_historicos': 'Jugadores Concurrentes',
                                 'genero': 'Género',
                             },
                         )
@@ -408,7 +408,7 @@ def render_tendencias(df_super):
                             data=frames_list_gen[0].data if frames_list_gen else [],
                             layout=go.Layout(
                                 title='📊 Carrera De Jugadores Por Categoría (Animación En Vivo)',
-                                xaxis=dict(title='Jugadores Concurrentes (Unidades)', range=[0, max_jugadores_categoria * 1.1]),
+                                xaxis=dict(title='Jugadores Concurrentes', range=[0, max_jugadores_categoria * 1.1]),
                                 yaxis=dict(
                                     title='Género',
                                     categoryorder='array',
@@ -575,7 +575,7 @@ def render_tendencias(df_super):
                             '🧩 DLC Estándar': '#FFB3B3',
                         },
                         labels={
-                            'fecha_dt': 'Fecha De Lanzamiento (Tiempo)',
+                            'fecha_dt': 'Fecha De Lanzamiento',
                             'precio_eur': 'Precio Actual (€)',
                             'nombre': 'Contenido',
                             'Categoria_DLC': 'Categoría (Tipo)',

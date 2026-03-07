@@ -70,7 +70,8 @@ PAISES = {
 def render_jugador(df_super=None):
     if df_super is None:
         df_super = pd.DataFrame()
-    st.header("👤 Análisis de ADN de Jugador")
+    id = st.session_state.get('jugador_steamid', '')
+    st.header("👤 Análisis de la Biblioteca del Jugador " + id)
     st.write("Pega tu SteamID64 o la **URL completa** de tu perfil público.")
 
     with st.form("jugador_form"):
@@ -90,7 +91,8 @@ def render_jugador(df_super=None):
             st.error("Formato no válido. Asegúrate de introducir una URL válida o el ID de 17 dígitos.")
             return
 
-        with st.spinner("⏳ Conectando con Steam y extrayendo biblioteca..."):
+        id = steamid_real
+        with st.spinner("Conectando con Steam y extrayendo biblioteca de " + id + " ..."):
             try:
                 perfil, df_juegos, df_generos_jugador = fetch_user_profile(steamid_real)
                 st.session_state['jugador_perfil'] = perfil
@@ -214,7 +216,7 @@ def render_jugador(df_super=None):
                         r='afinidad_relativa',
                         theta='genero',
                         line_close=True,
-                        title='🕸️ ADN por Géneros',
+                        title='🕸️ Radar por Géneros',
                         color_discrete_sequence=[RED_BASE],
                         range_r=[0, 100],
                         labels={

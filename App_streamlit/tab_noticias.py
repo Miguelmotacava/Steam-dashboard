@@ -141,7 +141,7 @@ def render_noticias(df_super):
                     title='📊 Publicaciones Por Categoría',
                     color_discrete_sequence=[RED_BASE],
                     labels={
-                        'cantidad': 'Número De Publicaciones (Unidades)',
+                        'cantidad': 'Número De Publicaciones',
                         'categoria': 'Categoría De La Noticia',
                     },
                 )
@@ -209,8 +209,8 @@ def render_noticias(df_super):
                 ax_line.spines['top'].set_visible(False)
                 ax_line.spines['right'].set_visible(False)
                 ax_line.tick_params(colors='gray', labelsize=8)
-                ax_line.set_xlabel('Fecha De Publicación (Tiempo)', color='gray', fontsize=8)
-                ax_line.set_ylabel('Número De Noticias (Unidades)', color='gray', fontsize=8)
+                ax_line.set_xlabel('Fecha De Publicación', color='gray', fontsize=8)
+                ax_line.set_ylabel('Número De Noticias', color='gray', fontsize=8)
                 ax_line.yaxis.set_major_locator(MaxNLocator(integer=True))
                 fig_line.tight_layout(pad=1.2)
                 st.pyplot(fig_line, transparent=True)

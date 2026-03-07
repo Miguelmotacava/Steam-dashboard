@@ -255,7 +255,7 @@ def fetch_user_profile(steamid):
                 generos_jugador.append({'juego': data.get('name'), 'genero': gen, 'minutos': top_15.iloc[i]['playtime_forever']})
         except: pass
         time.sleep(1.2)
-        my_bar.progress((i + 1) / len(top_15), text="⏳ Extrayendo géneros de tu biblioteca...")
+        my_bar.progress((i + 1) / len(top_15), text="⏳ Extrayendo géneros de la biblioteca...")
     my_bar.empty()
     return perfil[0], df_juegos, pd.DataFrame(generos_jugador)
 
