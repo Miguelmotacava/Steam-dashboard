@@ -138,11 +138,11 @@ def render_noticias(df_super):
                     x='cantidad',
                     y='categoria',
                     orientation='h',
-                    title='📊 Publicaciones Por Categoría',
+                    title='📡 Cobertura Por Medios',
                     color_discrete_sequence=[RED_BASE],
                     labels={
                         'cantidad': 'Número De Publicaciones',
-                        'categoria': 'Categoría De La Noticia',
+                        'categoria': 'Medio De La Noticia',
                     },
                 )
                 fig_cats.update_traces(hovertemplate='<b>Categoría</b>: %{y}<br><b>Nº de publicaciones</b>: %{x}<extra></extra>')
@@ -168,7 +168,7 @@ def render_noticias(df_super):
                         names='tipo',
                         values='cantidad',
                         hole=0.5,
-                        title='📊 Porcentaje De Noticias: Parches vs Anuncios',
+                        title='⚖️ Balance: Soporte vs Marketing',
                         color='tipo',
                         color_discrete_map={'Parches': RED_BASE, 'Anuncios': '#FF8080'},
                         labels={'tipo': 'Tipo De Noticia', 'cantidad': 'Cantidad'},
