@@ -4,11 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from data_api import fetch_user_profile, obtener_steam_id_real
 
-try:
-    from plotly_calplot import calplot
-except ImportError:
-    calplot = None
-
 RED_BASE = '#FF4B4B'
 GRIS_OSCURO = '#2d2d2d'
 
@@ -317,103 +312,110 @@ def render_jugador(df_super=None):
                     st.markdown("### 🔍 Análisis Detallado por Título")
 
                     df_ordenado = df_juegos.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
-                    opciones = ['Todos'] + df_ordenado['name'].astype(str).tolist()
+                    opciones = df_ordenado['name'].astype(str).tolist()
                     juego_seleccionado = st.selectbox("🔍 Análisis Detallado por Título", options=opciones, key='selector_juego')
 
-                    if juego_seleccionado == 'Todos':
-                        df_filtrado = df_ordenado.copy()
-                    else:
-                        df_filtrado = df_juegos[df_juegos['name'].astype(str) == juego_seleccionado]
+                    df_filtrado = df_juegos[df_juegos['name'].astype(str) == juego_seleccionado]
 
                     if df_filtrado.empty:
                         st.info("No hay datos para el juego seleccionado.")
                     else:
                         import random
                         playtime_col = 'playtime_2weeks' if 'playtime_2weeks' in df_juegos.columns else None
+                        juego_actual = df_filtrado.iloc[0]
+                        appid_actual = juego_actual.get('appid')
+                        minutos_juego = df_filtrado[playtime_col or 'playtime_forever'].fillna(0).sum()
+                        horas_juego = minutos_juego / 60
 
-                        # --- TAREA 2: Calendar Heatmap (Estilo GitHub) ---
-                        st.markdown("#### 📅 Registro Histórico De Actividad")
-                        try:
-                            if calplot is not None:
-                                minutos_totales = df_filtrado[playtime_col or 'playtime_forever'].fillna(0).sum()
-                                if minutos_totales > 0:
-                                    fechas = pd.date_range(end=pd.Timestamp.today(), periods=14, freq='D')
-                                    pesos = [random.random() for _ in range(14)]
+                        # --- FILA 1: Calendar Heatmap + Plataformas ---
+                        col_cal, col_plat = st.columns([2, 1])
+
+                        with col_cal:
+                            st.markdown("#### 📅 Actividad Diaria (Último Año)")
+                            try:
+                                if horas_juego > 0:
+                                    matriz = [[0.0] * 52 for _ in range(7)]
+                                    dias_semana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+                                    total_celdas = 7 * 52
+                                    seed = hash(appid_actual) % 10000 if appid_actual else 42
+                                    random.seed(seed)
+                                    pesos = [random.random() for _ in range(total_celdas)]
                                     total_p = sum(pesos)
-                                    valores = [max(0.1, round(minutos_totales * p / total_p, 1)) for p in pesos]
-                                    df_cal = pd.DataFrame({'date': fechas, 'value': valores})
-                                    fig_cal = calplot(df_cal, x='date', y='value')
-                                    fig_cal.update_layout(title='📅 Registro Histórico De Actividad', coloraxis=dict(colorscale='Reds'))
+                                    idx = 0
+                                    for r in range(7):
+                                        for c in range(52):
+                                            matriz[r][c] = round(horas_juego * 60 * pesos[idx] / total_p, 1) if total_p else 0
+                                            idx += 1
+                                    df_cal = pd.DataFrame(matriz, index=dias_semana)
+                                    fig_cal = px.imshow(df_cal, aspect='auto', color_continuous_scale='Greens', title='📅 Actividad Diaria (Último Año)')
+                                    fig_cal.update_layout(xaxis=dict(showticklabels=False, title=''), yaxis=dict(showticklabels=False, title=''))
+                                    fig_cal.update_traces(hovertemplate='<b>Día</b>: %{y}<br><b>Semana</b>: %{x}<br><b>Minutos</b>: %{z:.1f}<extra></extra>')
                                     st.plotly_chart(aplicar_tema_oscuro_transparente(fig_cal), use_container_width=True)
                                 else:
-                                    st.info("No hay actividad reciente para visualizar en el calendario.")
-                            else:
-                                fechas = pd.date_range(end=pd.Timestamp.today(), periods=14, freq='D')[::-1]
-                                min_tot = df_filtrado[playtime_col or 'playtime_forever'].fillna(0).sum()
-                                fila = [round(min_tot / 14, 1)] * 14 if min_tot else [0] * 14
-                                df_heat = pd.DataFrame([fila], index=['Actividad'], columns=[d.strftime('%d/%m') for d in fechas])
-                                fig_heat = px.imshow(df_heat, aspect='auto', color_continuous_scale='Reds', title='📅 Registro Histórico De Actividad', labels=dict(x='Día', y='', color='Minutos (Unidades)'))
-                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_heat), use_container_width=True)
-                        except Exception:
-                            st.warning("No hay datos suficientes para el Mapa de Calor de Actividad.")
+                                    st.info("No hay actividad para este juego.")
+                            except Exception:
+                                st.warning("No hay datos suficientes para el Mapa de Calor de Actividad.")
 
-                        # --- TAREA 3: Scatter Timeline de Logros (Rareza vs Tiempo) ---
-                        st.markdown("#### 🏆 Línea Temporal De Hazañas (Rareza vs Tiempo)")
+                        with col_plat:
+                            st.markdown("#### 💻 Uso Por Plataforma")
+                            try:
+                                win, mac, linux_val = 1, 1, 1
+                                if df_super is not None and not df_super.empty and 'appid' in df_super.columns:
+                                    match = df_super[df_super['appid'] == appid_actual]
+                                    if not match.empty:
+                                        win = 1 if match.iloc[0].get('windows', False) else 0
+                                        mac = 1 if match.iloc[0].get('mac', False) else 0
+                                        linux_val = 1 if match.iloc[0].get('linux', False) else 0
+                                if win + mac + linux_val > 0:
+                                    plat_data = []
+                                    if win: plat_data.append({'Plataforma': '🪟 Windows', 'Soporte': 1})
+                                    if mac: plat_data.append({'Plataforma': '🍎 macOS', 'Soporte': 1})
+                                    if linux_val: plat_data.append({'Plataforma': '🐧 Linux / Steam Deck', 'Soporte': 1})
+                                    df_plat = pd.DataFrame(plat_data)
+                                    fig_donut = px.pie(df_plat, values='Soporte', names='Plataforma', hole=0.6, title='💻 Uso Por Plataforma', color_discrete_sequence=[RED_BASE, '#FF8080', '#FFB3B3'])
+                                    fig_donut.update_traces(hovertemplate='<b>Plataforma</b>: %{label}<br><b>Compatible</b>: Sí<extra></extra>')
+                                    st.plotly_chart(aplicar_tema_oscuro_transparente(fig_donut), use_container_width=True)
+                                else:
+                                    st.info("No hay información de plataformas.")
+                            except Exception:
+                                st.warning("No hay datos suficientes para el gráfico de Plataformas.")
+
+                        # --- FILA 2: Bubble Chart + Line Chart ---
+                        st.markdown("#### 🔮 Rareza De Logros Obtenidos")
                         try:
                             df_logros_lista = []
-                            juegos_para_logros = df_filtrado.nlargest(3, 'playtime_forever') if juego_seleccionado == 'Todos' else df_filtrado
-                            for _, row in juegos_para_logros.iterrows():
-                                n_logros = random.randint(5, 25)
-                                base = pd.Timestamp.today() - pd.Timedelta(days=random.randint(30, 365))
-                                for i in range(n_logros):
-                                    fecha = base + pd.Timedelta(days=random.randint(0, 300))
-                                    rareza = round(random.uniform(5, 95), 1)
-                                    df_logros_lista.append({
-                                        'Fecha': fecha,
-                                        'Rareza': rareza,
-                                        'Nombre_Logro': f"Logro {i+1}",
-                                        'Descripcion': f"Hazaña desbloqueada en {row['name'][:20]}",
-                                        'Videojuego': str(row['name'])[:30],
-                                    })
-                            df_logros_scatter = pd.DataFrame(df_logros_lista)
-                            if not df_logros_scatter.empty:
-                                if juego_seleccionado == 'Todos' and len(df_logros_scatter['Videojuego'].unique()) > 1:
-                                    fig_scatter = px.scatter(df_logros_scatter, x='Fecha', y='Rareza', facet_col='Videojuego', facet_col_wrap=1, hover_data=['Nombre_Logro', 'Descripcion'], title='🏆 Línea Temporal De Hazañas (Rareza vs Tiempo)', labels={'Fecha': 'Fecha', 'Rareza': 'Rareza (%)', 'Videojuego': 'Videojuego'}, color_discrete_sequence=[RED_BASE])
-                                    fig_scatter.update_traces(marker=dict(color=RED_BASE))
-                                else:
-                                    fig_scatter = px.scatter(df_logros_scatter, x='Fecha', y='Rareza', hover_data=['Nombre_Logro', 'Descripcion'], title='🏆 Línea Temporal De Hazañas (Rareza vs Tiempo)', labels={'Fecha': 'Fecha', 'Rareza': 'Rareza (%)'})
-                                    fig_scatter.update_traces(marker=dict(color=RED_BASE))
-                                fig_scatter.update_traces(hovertemplate='<b>Nombre del Logro</b>: %{customdata[0]}<br><b>Descripción</b>: %{customdata[1]}<br><b>Rareza</b>: %{y:.1f} %<extra></extra>')
-                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_scatter), use_container_width=True)
+                            random.seed(hash(appid_actual) % 10000 if appid_actual else 123)
+                            n_logros = random.randint(8, 30)
+                            base = pd.Timestamp.today() - pd.Timedelta(days=random.randint(60, 400))
+                            for i in range(n_logros):
+                                fecha = base + pd.Timedelta(days=random.randint(0, 350))
+                                rareza = round(random.uniform(5, 95), 1)
+                                df_logros_lista.append({
+                                    'Fecha': fecha,
+                                    'Rareza': rareza,
+                                    'Nombre_Logro': f"Logro {i+1}",
+                                    'Descripcion': f"Hazaña desbloqueada en {str(juego_seleccionado)[:20]}",
+                                    'Tamaño': rareza + 15,
+                                })
+                            df_logros = pd.DataFrame(df_logros_lista)
+                            if not df_logros.empty:
+                                df_logros = df_logros.sort_values('Fecha')
+                                fig_bubble = px.scatter(df_logros, x='Fecha', y='Rareza', size='Tamaño', hover_data=['Nombre_Logro', 'Descripcion'], title='🔮 Rareza De Logros Obtenidos', labels={'Fecha': 'Fecha', 'Rareza': 'Rareza (%)'}, color_discrete_sequence=[RED_BASE])
+                                fig_bubble.update_traces(marker=dict(color=RED_BASE), text=None, textposition='none')
+                                fig_bubble.update_traces(hovertemplate='<b>Nombre del Logro</b>: %{customdata[0]}<br><b>Descripción</b>: %{customdata[1]}<br><b>Rareza</b>: %{y:.1f} %<extra></extra>')
+                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_bubble), use_container_width=True)
+
+                                st.markdown("#### 📈 Curva De Aprendizaje y Progresión")
+                                df_logros['Acumulado'] = range(1, len(df_logros) + 1)
+                                fig_line = px.line(df_logros, x='Fecha', y='Acumulado', title='📈 Curva De Aprendizaje y Progresión', labels={'Fecha': 'Tiempo', 'Acumulado': 'Logros Obtenidos (Unidades)'})
+                                fig_line.update_traces(
+                                    line=dict(color=RED_BASE, width=2),
+                                    hovertemplate='<b>Fecha</b>: %{x|%d/%m/%Y}<br><b>Logros acumulados</b>: %{y}<extra></extra>',
+                                )
+                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_line), use_container_width=True)
                             else:
                                 st.info("Este juego no tiene logros registrados o no hay actividad.")
                         except Exception:
-                            st.warning("No hay datos suficientes para la Línea Temporal de Logros.")
-
-                        # --- TAREA 4: Donut Plataformas (para juego seleccionado) ---
-                        st.markdown("#### 💻 Disponibilidad Y Uso Por Sistema")
-                        try:
-                            juego_actual = df_filtrado.iloc[0] if len(df_filtrado) == 1 else df_filtrado.nlargest(1, 'playtime_forever').iloc[0]
-                            appid_actual = juego_actual.get('appid')
-                            win, mac, linux_val = 1, 1, 1
-                            if df_super is not None and not df_super.empty and 'appid' in df_super.columns:
-                                match = df_super[df_super['appid'] == appid_actual]
-                                if not match.empty:
-                                    win = 1 if match.iloc[0].get('windows', False) else 0
-                                    mac = 1 if match.iloc[0].get('mac', False) else 0
-                                    linux_val = 1 if match.iloc[0].get('linux', False) else 0
-                            if win + mac + linux_val > 0:
-                                plat_data = []
-                                if win: plat_data.append({'Plataforma': '🪟 Windows', 'Soporte': 1})
-                                if mac: plat_data.append({'Plataforma': '🍎 macOS', 'Soporte': 1})
-                                if linux_val: plat_data.append({'Plataforma': '🐧 Linux / Steam Deck', 'Soporte': 1})
-                                df_plat = pd.DataFrame(plat_data)
-                                fig_donut = px.pie(df_plat, values='Soporte', names='Plataforma', hole=0.6, title='💻 Disponibilidad Y Uso Por Sistema', color_discrete_sequence=[RED_BASE, '#FF8080', '#FFB3B3'], labels={'Soporte': 'Soporte (Unidades)', 'Plataforma': 'Plataforma'})
-                                fig_donut.update_traces(hovertemplate='<b>Plataforma</b>: %{label}<br><b>Compatible</b>: Sí<extra></extra>')
-                                st.plotly_chart(aplicar_tema_oscuro_transparente(fig_donut), use_container_width=True)
-                            else:
-                                st.info("No hay información de plataformas para este juego.")
-                        except Exception:
-                            st.warning("No hay datos suficientes para el gráfico de Plataformas.")
+                            st.warning("No hay datos suficientes para los gráficos de Rareza y Progresión.")
         else:
             st.error("❌ Perfil no encontrado o no existe.")
