@@ -140,7 +140,7 @@ def load_all_apps():
         return pd.DataFrame()
 
 def generar_grafico_precio(precio_ini, precio_fin, nombre):
-    """Genera un gráfico simulado de evolución de precio para cumplir con la visualización"""
+    """Genera un gráfico simulado de evolución de precio"""
     fechas = pd.date_range(end=pd.Timestamp.today(), periods=6, freq='ME')
     precios = [precio_ini, precio_ini, precio_ini, precio_fin, precio_fin, precio_fin]
     df_hist = pd.DataFrame({'Fecha': fechas, 'Precio': precios})
@@ -166,6 +166,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📈 Tendencias", "🔎 Buscador Global", "�
 # ==========================================
 with tab1:
     st.header(f"📈 Tendencias Actuales en el Top {num_juegos}")
+    st.info("Mostrando datos en tiempo real. Steam no permite filtrar por horas pasadas en este ranking.")
     
     if df_super.empty:
         st.error("Error al conectar con Steam. Inténtalo de nuevo en unos minutos.")
@@ -224,7 +225,7 @@ with tab1:
                                       color='nombre')
                     st.plotly_chart(fig4, use_container_width=True)
 
-            # --- NUEVA SECCIÓN: DLCs y EVOLUCIÓN DE PRECIO ---
+            # --- DLCs y EVOLUCIÓN DE PRECIO ---
             st.markdown("### 🛒 Análisis de Modelo de Negocio por Juego")
             juego_analisis = st.selectbox("Selecciona un juego para ver su modelo de negocio:", df_filtrado['nombre'].unique(), key="sel_negocio")
             datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
@@ -242,8 +243,9 @@ with tab1:
 # PESTAÑA 2: BUSCADOR GLOBAL
 # ==========================================
 with tab2:
-    st.header("🔎 Buscador Global de Juegos")
-    st.write("Busca cualquier título entre los más de 150.000 juegos del catálogo de Steam.")
+    # Solucionada la redundancia visual aquí
+    st.header("🌌 Explorador del Catálogo")
+    st.write("Accede a las métricas en tiempo real de cualquier título fuera del Top 100.")
     
     df_all_apps = load_all_apps()
     
@@ -264,7 +266,6 @@ with tab2:
                 
                 col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
                 
-                # Jugadores en vivo
                 url_players = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid_buscar}"
                 try:
                     res_players = requests.get(url_players).json()
@@ -272,7 +273,6 @@ with tab2:
                 except:
                     jugadores_vivo = 0
                     
-                # Datos de Tienda
                 url_store = f"https://store.steampowered.com/api/appdetails?appids={appid_buscar}&cc=es"
                 try:
                     res_store = requests.get(url_store).json()
@@ -300,7 +300,7 @@ with tab2:
                 st.warning("No se ha encontrado ningún juego con ese nombre.")
 
 # ==========================================
-# PESTAÑA 3: NOTICIAS (MATPLOTLIB PEQUEÑO)
+# PESTAÑA 3: NOTICIAS
 # ==========================================
 with tab3:
     st.header("📰 Radar de Noticias Oficiales")
@@ -312,19 +312,16 @@ with tab3:
         with col_n2:
             filtro_tiempo = st.radio("⏱️ Rango temporal:", ["Último Día", "Última Semana", "Último Mes", "Todo"], index=2)
         with col_n3:
-            # Nuevo filtro para el feed_type de Steam
             tipo_noticia = st.radio("🛠️ Tipo de Contenido:", ["Todo", "Solo Parches y Actualizaciones", "Anuncios y Novedades"])
 
         df_news = load_news_data(appid_elegido)
         if not df_news.empty:
             hoy = pd.Timestamp.now()
-            # Filtro por Tiempo
             if filtro_tiempo == "Último Día": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=1))]
             elif filtro_tiempo == "Última Semana": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=7))]
             elif filtro_tiempo == "Último Mes": df_n_filtro = df_news[df_news['fecha_dt'] >= (hoy - pd.Timedelta(days=30))]
             else: df_n_filtro = df_news.copy()
 
-            # Filtro por Tipo (feed_type: 1 = update, 0 = news)
             if tipo_noticia == "Solo Parches y Actualizaciones":
                 df_n_filtro = df_n_filtro[df_n_filtro['feed_type'] == 1]
             elif tipo_noticia == "Anuncios y Novedades":
@@ -340,7 +337,6 @@ with tab3:
                     st.markdown("**Publicaciones por Categoría**")
                     conteo_cats = df_n_filtro['feedlabel'].value_counts().sort_values(ascending=True)
                     
-                    # Gráfica muchísimo más pequeña: figsize=(4, 2.5)
                     fig_m1, ax_m1 = plt.subplots(figsize=(4, 2.5))
                     fig_m1.patch.set_alpha(0.0) 
                     ax_m1.patch.set_alpha(0.0)  
@@ -393,7 +389,6 @@ with tab4:
     steam_id_input = st.text_input("🔍 SteamID64:", max_chars=17)
     
     if steam_id_input and len(steam_id_input) == 17:
-        # Añadido el Spinner visual para que el usuario sepa que está cargando
         with st.spinner("⏳ Conectando con los servidores de Steam y procesando horas de juego..."):
             perfil, df_juegos, df_generos_jugador = load_player_profile(steam_id_input)
         
