@@ -220,71 +220,69 @@ def render_jugador():
                         use_container_width=True,
                     )
 
-                # --- FILA: Hábitos de Juego | Ecosistema de Hardware ---
-                col_habitos, col_hardware = st.columns(2)
+                # --- FILA: Curva de Pareto | Actividad Reciente ---
+                col_pareto, col_reciente = st.columns(2)
 
-                with col_habitos:
-                    df_compromiso = df_juegos.copy()
-                    df_compromiso['horas'] = df_compromiso['playtime_forever'] / 60
-                    bins = [0, 2, 20, 100, float('inf')]
-                    etiquetas = ['Probados (< 2h)', 'Casual (2-20h)', 'Completistas (20-100h)', 'Obsesiones (> 100h)']
-                    df_compromiso['categoria'] = pd.cut(
-                        df_compromiso['horas'],
-                        bins=bins,
-                        labels=etiquetas,
-                        include_lowest=True,
-                    )
-                    conteo_compromiso = (
-                        df_compromiso['categoria']
-                        .value_counts()
-                        .reindex(etiquetas, fill_value=0)
-                        .reset_index()
-                    )
-                    conteo_compromiso.columns = ['categoria', 'cantidad']
-                    fig_compromiso = px.bar(
-                        conteo_compromiso,
-                        x='cantidad',
-                        y='categoria',
-                        orientation='h',
-                        title='Hábitos De Juego (Nivel De Compromiso)',
-                        color_discrete_sequence=[RED_BASE],
-                        labels={
-                            'cantidad': 'Número De Juegos (Unidades)',
-                            'categoria': 'Categoría De Dedicación (Nivel)',
-                        },
-                    )
-                    fig_compromiso.update_traces(
-                        hovertemplate='<b>%{y}</b><br>Número De Juegos: %{x}<extra></extra>',
-                    )
-                    st.plotly_chart(
-                        aplicar_tema_oscuro_transparente(fig_compromiso),
-                        use_container_width=True,
-                    )
-
-                with col_hardware:
-                    h_windows = df_juegos['playtime_windows_forever'].sum() / 60 if 'playtime_windows_forever' in df_juegos.columns else 0
-                    h_mac = df_juegos['playtime_mac_forever'].sum() / 60 if 'playtime_mac_forever' in df_juegos.columns else 0
-                    h_linux = df_juegos['playtime_linux_forever'].sum() / 60 if 'playtime_linux_forever' in df_juegos.columns else 0
-                    if h_windows + h_mac + h_linux > 0:
-                        fig_hardware = go.Figure(
-                            data=[
-                                go.Pie(
-                                    labels=['Windows', 'MacOS', 'Linux (Steam Deck)'],
-                                    values=[h_windows, h_mac, h_linux],
-                                    hole=0.5,
-                                    marker_colors=[RED_BASE, '#FF8080', '#FFB3B3'],
-                                    textinfo='label+percent',
-                                    textfont=dict(color='white'),
-                                    hovertemplate='<b>%{label}</b><br>Tiempo: %{value:.1f} Horas<br>Porcentaje: %{percent}<extra></extra>',
-                                )
-                            ]
+                with col_pareto:
+                    df_jugados = df_juegos[df_juegos['playtime_forever'] > 0].copy()
+                    df_jugados = df_jugados.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
+                    if not df_jugados.empty:
+                        horas_totales = df_jugados['playtime_forever'].sum()
+                        df_jugados['porcentaje_acumulado'] = (
+                            df_jugados['playtime_forever'].cumsum() / horas_totales * 100
                         )
-                        fig_hardware.update_layout(title='Ecosistema De Hardware (Tiempo Por SO)')
+                        df_jugados['numero_juego'] = range(1, len(df_jugados) + 1)
+                        fig_pareto = px.area(
+                            df_jugados,
+                            x='numero_juego',
+                            y='porcentaje_acumulado',
+                            title='Concentración De Horas (Curva De Pareto)',
+                            color_discrete_sequence=[RED_BASE],
+                            labels={
+                                'numero_juego': 'Cantidad De Juegos (Unidades)',
+                                'porcentaje_acumulado': 'Porcentaje Acumulado (%)',
+                                'name': 'Videojuego (Nombre)',
+                            },
+                        )
+                        fig_pareto.update_traces(
+                            customdata=df_jugados['name'].values.reshape(-1, 1),
+                            hovertemplate='<b>%{customdata[0]}</b><br>Cantidad De Juegos: %{x}<br>Porcentaje Acumulado: %{y:.1f} %<extra></extra>',
+                        )
                         st.plotly_chart(
-                            aplicar_tema_oscuro_transparente(fig_hardware),
+                            aplicar_tema_oscuro_transparente(fig_pareto),
                             use_container_width=True,
                         )
                     else:
-                        st.info("No hay datos de tiempo por plataforma (playtime_*_forever no disponible en la API).")
+                        st.info("No hay juegos con tiempo jugado para mostrar la curva.")
+
+                with col_reciente:
+                    if 'playtime_2weeks' in df_juegos.columns:
+                        df_reciente = df_juegos[df_juegos['playtime_2weeks'] > 0].copy()
+                        if df_reciente.empty:
+                            st.info("El jugador no ha registrado actividad en los últimos 14 días.")
+                        else:
+                            df_reciente['horas_2semanas'] = df_reciente['playtime_2weeks'] / 60
+                            df_reciente = df_reciente.sort_values('horas_2semanas', ascending=True)
+                            fig_reciente = px.bar(
+                                df_reciente,
+                                x='horas_2semanas',
+                                y='name',
+                                orientation='h',
+                                title='Actividad Reciente (Últimos 14 Días)',
+                                color_discrete_sequence=[RED_BASE],
+                                labels={
+                                    'horas_2semanas': 'Tiempo Invertido (Horas)',
+                                    'name': 'Videojuego (Nombre)',
+                                },
+                            )
+                            fig_reciente.update_traces(
+                                hovertemplate='<b>%{y}</b><br>Tiempo Invertido: %{x:.1f} Horas<extra></extra>',
+                            )
+                            st.plotly_chart(
+                                aplicar_tema_oscuro_transparente(fig_reciente),
+                                use_container_width=True,
+                            )
+                    else:
+                        st.info("El jugador no ha registrado actividad en los últimos 14 días.")
         else:
             st.error("❌ Perfil no encontrado o no existe.")
