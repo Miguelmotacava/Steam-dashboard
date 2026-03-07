@@ -264,8 +264,11 @@ def render_tendencias(df_super):
                                 'Hora_Frame': 'Fecha De Registro (Tiempo)',
                             },
                         )
-                        fig_anim1.update_layout(xaxis_range=[0, max_jugadores * 1.1])
                         fig_anim1 = _aplicar_tema_plotly(fig_anim1)
+                        fig_anim1.update_layout(
+                            xaxis_range=[0, max_jugadores * 1.1],
+                            margin=dict(b=120),
+                        )
                         st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
@@ -316,8 +319,11 @@ def render_tendencias(df_super):
                                 'Hora_Frame': 'Fecha De Registro (Tiempo)',
                             },
                         )
-                        fig_anim2.update_layout(yaxis_range=[0, max_jugadores_categoria * 1.1])
                         fig_anim2 = _aplicar_tema_plotly(fig_anim2)
+                        fig_anim2.update_layout(
+                            yaxis_range=[0, max_jugadores_categoria * 1.1],
+                            margin=dict(b=120),
+                        )
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
@@ -358,24 +364,32 @@ def render_tendencias(df_super):
                 if dlcs:
                     df_dlc = pd.DataFrame(dlcs)
                     df_dlc['fecha_dt'] = pd.to_datetime(df_dlc['fecha_salida'], errors='coerce')
-                    df_dlc_con_fecha = df_dlc.dropna(subset=['fecha_dt']).sort_values('fecha_dt')
+                    df_dlc['fecha_dt'] = df_dlc['fecha_dt'].fillna(pd.Timestamp.today())
+                    df_dlc_con_fecha = df_dlc.sort_values('fecha_dt')
                     if not df_dlc_con_fecha.empty:
                         fig_dlc = px.scatter(
                             df_dlc_con_fecha,
                             x='fecha_dt',
                             y='precio_eur',
                             hover_name='nombre',
+                            color='tipo',
                             title='📅 Expansiones y Cosméticos: Fecha de Salida vs Precio',
-                            color_discrete_sequence=[RED_BASE],
+                            color_discrete_map={
+                                'DLC': RED_BASE,
+                                'Expansión': '#FF8080',
+                                'Cosmético': '#FFB3B3',
+                                'Banda Sonora': '#E74C3C',
+                            },
                             labels={
                                 'fecha_dt': 'Fecha De Salida (Tiempo)',
                                 'precio_eur': 'Precio (Euros)',
                                 'nombre': 'Nombre',
+                                'tipo': 'Tipo',
                             },
                         )
                         fig_dlc.update_traces(
                             marker=dict(size=12),
-                            hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
+                            hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<br>Tipo: %{fullData.name}<extra></extra>',
                         )
                         fig_dlc = _aplicar_tema_plotly(fig_dlc)
                         max_precio = df_dlc_con_fecha['precio_eur'].max()

@@ -161,6 +161,16 @@ def fetch_dlc_list(appid):
         dlc_appids = data.get('dlc', [])
         if not dlc_appids:
             return []
+        def _infer_tipo_dlc(nombre):
+            n = (nombre or '').lower()
+            if 'soundtrack' in n or ' ost' in n or 'banda sonora' in n:
+                return 'Banda Sonora'
+            if 'cosmetic' in n or 'skin' in n or 'cosmético' in n:
+                return 'Cosmético'
+            if 'expansion' in n or 'expansión' in n:
+                return 'Expansión'
+            return 'DLC'
+
         resultados = []
         for dlc_id in dlc_appids:
             try:
@@ -175,10 +185,12 @@ def fetch_dlc_list(appid):
                     else:
                         precio = po.get('final', 0) / 100
                     fecha = d.get('release_date', {}).get('date', '')
+                    nombre_dlc = d.get('name', 'Desconocido')
                     resultados.append({
-                        'nombre': d.get('name', 'Desconocido'),
+                        'nombre': nombre_dlc,
                         'fecha_salida': fecha,
                         'precio_eur': precio,
+                        'tipo': _infer_tipo_dlc(nombre_dlc),
                     })
             except Exception:
                 pass

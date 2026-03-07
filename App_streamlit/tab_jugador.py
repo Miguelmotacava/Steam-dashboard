@@ -214,31 +214,38 @@ def render_jugador(df_super=None):
 
                 st.markdown("---")
 
-                # --- FILA DE GRÁFICOS 2: Treemap | Donut Backlog ---
+                # --- FILA DE GRÁFICOS 2: Sunburst | Donut Backlog ---
                 col_g3, col_g4 = st.columns(2)
                 with col_g3:
-                    df_jugados = df_juegos.copy()
-                    df_jugados['horas'] = df_jugados['playtime_forever'] / 60
-                    df_treemap = df_jugados[df_jugados['horas'] >= 1]
-                    if not df_treemap.empty:
-                        fig_treemap = px.treemap(
-                            df_treemap,
-                            path=[px.Constant("Biblioteca"), 'name'],
+                    df_sunburst = df_juegos[df_juegos['playtime_forever'] > 0].copy()
+                    df_sunburst['horas'] = df_sunburst['playtime_forever'] / 60
+                    df_sunburst = df_sunburst.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
+                    if not df_sunburst.empty:
+                        df_sunburst['categoria_anillo'] = [
+                            'Top 5 Favoritos' if i < 5 else 'Resto Del Catálogo'
+                            for i in range(len(df_sunburst))
+                        ]
+                        fig_sunburst = px.sunburst(
+                            df_sunburst,
+                            path=['categoria_anillo', 'name'],
                             values='horas',
-                            title='📍 Distribución del Tiempo',
+                            title='☀️ Distribución Del Tiempo De Vida',
                             color_discrete_sequence=[RED_BASE],
+                            labels={
+                                'horas': 'Tiempo Invertido (Horas)',
+                                'name': 'Videojuego',
+                                'categoria_anillo': 'Categoría',
+                            },
                         )
-                        fig_treemap.update_traces(
-                            marker=dict(cornerradius=4),
-                            textinfo='label+value+percent parent',
+                        fig_sunburst.update_traces(
                             hovertemplate='<b>%{label}</b><br>Tiempo Invertido: %{value:.1f} Horas<br>Porcentaje: %{percentParent:.1%}<extra></extra>',
                         )
                         st.plotly_chart(
-                            aplicar_tema_oscuro_transparente(fig_treemap),
+                            aplicar_tema_oscuro_transparente(fig_sunburst),
                             use_container_width=True,
                         )
                     else:
-                        st.info("No hay juegos con más de 1 hora jugada para mostrar.")
+                        st.info("No hay juegos con tiempo jugado para mostrar.")
 
                 with col_g4:
                     juegos_jugados = len(df_juegos[df_juegos['playtime_forever'] > 0])
@@ -262,35 +269,28 @@ def render_jugador(df_super=None):
                         use_container_width=True,
                     )
 
-                # --- FILA: Sunburst Distribución Del Tiempo De Vida (Sistema Solar) ---
-                df_sunburst = df_juegos[df_juegos['playtime_forever'] > 0].copy()
-                df_sunburst['horas'] = df_sunburst['playtime_forever'] / 60
-                df_sunburst = df_sunburst.sort_values('playtime_forever', ascending=False).reset_index(drop=True)
-                if not df_sunburst.empty:
-                    df_sunburst['categoria_anillo'] = [
-                        'Top 5 Favoritos' if i < 5 else 'Resto Del Catálogo'
-                        for i in range(len(df_sunburst))
-                    ]
-                    fig_sunburst = px.sunburst(
-                        df_sunburst,
-                        path=['categoria_anillo', 'name'],
+                # --- FILA: Treemap Distribución del Tiempo ---
+                df_jugados = df_juegos.copy()
+                df_jugados['horas'] = df_jugados['playtime_forever'] / 60
+                df_treemap = df_jugados[df_jugados['horas'] >= 1]
+                if not df_treemap.empty:
+                    fig_treemap = px.treemap(
+                        df_treemap,
+                        path=[px.Constant("Biblioteca"), 'name'],
                         values='horas',
-                        title='☀️ Distribución Del Tiempo De Vida (Sistema Solar)',
+                        title='📍 Distribución del Tiempo',
                         color_discrete_sequence=[RED_BASE],
-                        labels={
-                            'horas': 'Tiempo Invertido (Horas)',
-                            'name': 'Videojuego',
-                            'categoria_anillo': 'Categoría',
-                        },
                     )
-                    fig_sunburst.update_traces(
+                    fig_treemap.update_traces(
+                        marker=dict(cornerradius=4),
+                        textinfo='label+value+percent parent',
                         hovertemplate='<b>%{label}</b><br>Tiempo Invertido: %{value:.1f} Horas<br>Porcentaje: %{percentParent:.1%}<extra></extra>',
                     )
                     st.plotly_chart(
-                        aplicar_tema_oscuro_transparente(fig_sunburst),
+                        aplicar_tema_oscuro_transparente(fig_treemap),
                         use_container_width=True,
                     )
                 else:
-                    st.info("No hay juegos con tiempo jugado para mostrar.")
+                    st.info("No hay juegos con más de 1 hora jugada para mostrar.")
         else:
             st.error("❌ Perfil no encontrado o no existe.")
