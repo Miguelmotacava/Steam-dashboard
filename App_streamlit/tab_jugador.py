@@ -39,8 +39,9 @@ def render_jugador():
                     if not df_generos_jugador.empty:
                         col_j1, col_j2 = st.columns(2)
                         with col_j1:
-                            df_juegos['horas'] = df_juegos['playtime_forever'] / 60
-                            fig_p1 = px.bar(df_juegos.nlargest(10, 'horas').sort_values('horas'), x='horas', y='name', orientation='h', title='🏆 Más Jugados', color_discrete_sequence=[RED_BASE])
+                            df_mostrar = df_juegos.copy()
+                            df_mostrar['horas'] = df_mostrar['playtime_forever'] / 60
+                            fig_p1 = px.bar(df_mostrar.nlargest(10, 'horas').sort_values('horas'), x='horas', y='name', orientation='h', title='🏆 Más Jugados', color_discrete_sequence=[RED_BASE])
                             st.plotly_chart(fig_p1, use_container_width=True)
                         with col_j2:
                             radar_data = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()

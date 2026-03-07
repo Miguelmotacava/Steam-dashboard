@@ -118,18 +118,31 @@ def render_tendencias(df_super):
 
         st.markdown("### 🛒 Análisis de Modelo de Negocio")
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
-        datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
-        
-        with st.spinner("🔍 Consultando historial de precios reales..."):
-            datos_historicos = obtener_precio_historico(datos_juego['appid'], juego_analisis)
+        try:
+            datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
+            
+            with st.spinner("🔍 Consultando historial de precios reales..."):
+                try:
+                    datos_historicos = obtener_precio_historico(datos_juego['appid'], juego_analisis)
+                except Exception as e:
+                    import traceback
+                    st.error(f"Error consultando historial: {e}")
+                    datos_historicos = None
 
-        col_d1, col_d2 = st.columns([1, 2])
-        with col_d1:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.metric("🧩 Expansiones y Cosméticos", int(datos_juego['dlc_count']))
-            st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
-            st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
-            if datos_historicos:
-                st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
-        with col_d2:
-            st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida'], datos_historicos), use_container_width=True)
+            col_d1, col_d2 = st.columns([1, 2])
+            with col_d1:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.metric("🧩 Expansiones y Cosméticos", int(datos_juego['dlc_count']))
+                st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
+                st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
+                if datos_historicos:
+                    st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
+            with col_d2:
+                try:
+                    st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida'], datos_historicos), use_container_width=True)
+                except Exception as e:
+                    import traceback
+                    st.error(f"Error generando gráfico: {traceback.format_exc()}")
+        except Exception as e:
+            import traceback
+            st.error(f"Error procesando análisis de negocio: {traceback.format_exc()}")
