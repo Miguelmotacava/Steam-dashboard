@@ -235,7 +235,7 @@ def render_tendencias(df_super):
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'nombre': 'Videojuego',
+                                'nombre': 'Videojuego (Nombre)',
                             },
                         )
                         fig_line.update_traces(
@@ -243,6 +243,28 @@ def render_tendencias(df_super):
                         )
                         fig_line = _aplicar_tema_plotly(fig_line)
                         st.plotly_chart(fig_line, use_container_width=True)
+
+                        # Animación 1: Carrera de Juegos
+                        df_anim_top10 = df_line_top10.sort_values('Fecha')
+                        max_jugadores = df_anim_top10['jugadores_historicos'].max()
+                        fig_anim1 = px.bar(
+                            df_anim_top10,
+                            x='jugadores_historicos',
+                            y='nombre',
+                            orientation='h',
+                            color='nombre',
+                            animation_frame='Fecha',
+                            title='Carrera De Jugadores Concurrentes (Animación En Vivo)',
+                            color_discrete_sequence=px.colors.qualitative.Vivid,
+                            labels={
+                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'nombre': 'Videojuego (Nombre)',
+                                'Fecha': 'Fecha De Registro (Tiempo)',
+                            },
+                        )
+                        fig_anim1.update_layout(xaxis_range=[0, max_jugadores * 1.1])
+                        fig_anim1 = _aplicar_tema_plotly(fig_anim1)
+                        st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
 
@@ -265,7 +287,7 @@ def render_tendencias(df_super):
                             labels={
                                 'Fecha': 'Fecha De Registro (Tiempo)',
                                 'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
-                                'genero': 'Género',
+                                'genero': 'Género (Categoría)',
                             },
                         )
                         fig_area.update_traces(
@@ -273,6 +295,27 @@ def render_tendencias(df_super):
                         )
                         fig_area = _aplicar_tema_plotly(fig_area)
                         st.plotly_chart(fig_area, use_container_width=True)
+
+                        # Animación 2: Evolución de Categorías
+                        df_anim_gen = df_gen_hist.sort_values('Fecha')
+                        max_jugadores_categoria = df_anim_gen['jugadores_historicos'].max()
+                        fig_anim2 = px.bar(
+                            df_anim_gen,
+                            x='genero',
+                            y='jugadores_historicos',
+                            color='genero',
+                            animation_frame='Fecha',
+                            title='Evolución De Jugadores Por Categoría (Animación En Vivo)',
+                            color_discrete_sequence=px.colors.qualitative.Vivid,
+                            labels={
+                                'genero': 'Género (Categoría)',
+                                'jugadores_historicos': 'Jugadores Concurrentes (Unidades)',
+                                'Fecha': 'Fecha De Registro (Tiempo)',
+                            },
+                        )
+                        fig_anim2.update_layout(yaxis_range=[0, max_jugadores_categoria * 1.1])
+                        fig_anim2 = _aplicar_tema_plotly(fig_anim2)
+                        st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
 
