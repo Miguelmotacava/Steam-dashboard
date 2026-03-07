@@ -170,7 +170,10 @@ def fetch_dlc_list(appid):
                 if r and str(dlc_id) in r and r[str(dlc_id)].get('success'):
                     d = r[str(dlc_id)]['data']
                     po = d.get('price_overview', {})
-                    precio = po.get('final', 0) / 100 if po else 0.0
+                    if d.get('is_free', False) or not po:
+                        precio = 0.0
+                    else:
+                        precio = po.get('final', 0) / 100
                     fecha = d.get('release_date', {}).get('date', '')
                     resultados.append({
                         'nombre': d.get('name', 'Desconocido'),

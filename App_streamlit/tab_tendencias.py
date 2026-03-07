@@ -312,10 +312,10 @@ def render_tendencias(df_super):
                 if dlcs:
                     df_dlc = pd.DataFrame(dlcs)
                     df_dlc['fecha_dt'] = pd.to_datetime(df_dlc['fecha_salida'], errors='coerce')
-                    df_dlc = df_dlc.dropna(subset=['fecha_dt']).sort_values('fecha_dt')
-                    if not df_dlc.empty:
+                    df_dlc_con_fecha = df_dlc.dropna(subset=['fecha_dt']).sort_values('fecha_dt')
+                    if not df_dlc_con_fecha.empty:
                         fig_dlc = px.scatter(
-                            df_dlc,
+                            df_dlc_con_fecha,
                             x='fecha_dt',
                             y='precio_eur',
                             hover_name='nombre',
