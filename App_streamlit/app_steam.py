@@ -1,5 +1,5 @@
 import streamlit as st
-from data_api import fetch_steam_data
+from data_api import fetch_global_steam_data
 
 from tab_tendencias import render_tendencias
 from tab_noticias import render_noticias
@@ -12,7 +12,11 @@ st.title("🎮 Dashboard de Análisis de Steam")
 num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", 10, 100, 50, 10)
 st.markdown("---")
 
-df_super = fetch_steam_data(num_juegos)
+try:
+    df_super = fetch_global_steam_data(num_juegos)
+except Exception as e:
+    st.error(f"Error al analizar el mercado global: {e}")
+    df_super = pd.DataFrame()
 
 # El buscador global ha sido eliminado para máxima velocidad
 tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])

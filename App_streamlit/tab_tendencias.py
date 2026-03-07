@@ -6,7 +6,7 @@ RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 
 import plotly.graph_objects as go
-from data_api import fetch_precio_historico
+from data_api import fetch_history_price
 
 def generar_grafico_precio_real(precio_ini, precio_fin, nombre, fecha_salida, datos_historicos=None):
     """Genera la gráfica conectando el día de lanzamiento real, el mínimo histórico y el día de hoy"""
@@ -123,7 +123,7 @@ def render_tendencias(df_super):
             
             with st.spinner("🔍 Consultando historial de precios reales..."):
                 try:
-                    datos_historicos = fetch_precio_historico(datos_juego['appid'], juego_analisis)
+                    datos_historicos = fetch_history_price(datos_juego['appid'], juego_analisis)
                 except Exception as e:
                     import traceback
                     st.error(f"Error consultando historial: {e}")

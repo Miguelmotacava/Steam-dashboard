@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from data_api import fetch_player_profile, obtener_steam_id_real
+from data_api import fetch_user_profile, obtener_steam_id_real
 
 RED_BASE = '#FF4B4B'
 
@@ -23,7 +23,7 @@ def render_jugador():
 
         with st.spinner("⏳ Conectando con Steam y extrayendo biblioteca..."):
             try:
-                perfil, df_juegos, df_generos_jugador = fetch_player_profile(steamid_real)
+                perfil, df_juegos, df_generos_jugador = fetch_user_profile(steamid_real)
             except Exception as e:
                 st.error(f"❌ Error al cargar tu perfil: {e}")
                 perfil = None

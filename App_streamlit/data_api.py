@@ -53,11 +53,10 @@ def obtener_steam_id_real(input_usuario):
     return None
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_steam_data(limite):
+def fetch_global_steam_data(limite):
     steam_api_key = get_api_key()
     if not steam_api_key: 
-        st.error("STEAM_API_KEY no detectado (API global)")
-        return pd.DataFrame()
+        raise RuntimeError("STEAM_API_KEY no detectado (API global). Configure el archivo .env o st.secrets.")
     
     url_top = f"https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/?key={steam_api_key}"
     try:
@@ -65,8 +64,7 @@ def fetch_steam_data(limite):
         res.raise_for_status()
         top_juegos = res.json().get('response', {}).get('ranks', [])[:limite]
     except Exception as e:
-        st.error(f"Error HTTP Steam API Global: {e}")
-        return pd.DataFrame()
+        raise RuntimeError(f"Error HTTP Steam API Global: {e}")
     
     df_jugadores = pd.DataFrame(top_juegos)
     if df_jugadores.empty: return pd.DataFrame()
@@ -100,7 +98,7 @@ def fetch_steam_data(limite):
     return pd.merge(pd.DataFrame(datos_tienda), df_jugadores, on='appid', how='inner')
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_precio_historico(appid, nombre):
+def fetch_history_price(appid, nombre):
     """Consulta CheapShark para obtener el precio más bajo histórico en Steam."""
     try:
         url_search = f"https://www.cheapshark.com/api/1.0/games?steamAppID={appid}"
@@ -143,7 +141,7 @@ def load_news_data(appid):
     except: return pd.DataFrame()
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_player_profile(steamid):
+def fetch_user_profile(steamid):
     steam_api_key = get_api_key()
     if not steam_api_key:
         raise ValueError("STEAM_API_KEY no detectado (Asegúrate de configurar los Secrets en Streamlit Cloud o tener el archivo .env)")
