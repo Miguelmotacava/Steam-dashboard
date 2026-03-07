@@ -246,9 +246,13 @@ def render_tendencias(df_super):
                         fig_line = _aplicar_tema_plotly(fig_line)
                         st.plotly_chart(fig_line, use_container_width=True)
 
-                        # Animación 1: Carrera de Juegos
+                        # Animación 1: Carrera de Juegos (orden por ranking: quien supera, intercambia puesto)
                         df_anim_top10 = df_line_top10.sort_values('Fecha').copy()
                         df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
+                        df_anim_top10 = df_anim_top10.sort_values(
+                            ['Fecha', 'jugadores_historicos'],
+                            ascending=[True, False],
+                        ).reset_index(drop=True)
                         max_jugadores = df_anim_top10['jugadores_historicos'].max()
                         fig_anim1 = px.bar(
                             df_anim_top10,
@@ -268,13 +272,13 @@ def render_tendencias(df_super):
                         fig_anim1 = _aplicar_tema_plotly(fig_anim1)
                         fig_anim1.update_layout(
                             xaxis_range=[0, max_jugadores * 1.1],
-                            margin=dict(b=120),
+                            margin=dict(b=200),
                         )
                         fig_anim1.update_xaxes(title_standoff=30)
                         if fig_anim1.layout.updatemenus:
-                            fig_anim1.layout.updatemenus[0].y = -0.25
+                            fig_anim1.layout.updatemenus[0].y = -0.5
                         if fig_anim1.layout.sliders:
-                            fig_anim1.layout.sliders[0].y = -0.25
+                            fig_anim1.layout.sliders[0].y = -0.5
                         st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
                         st.info("No hay datos históricos para el Top 10 actual.")
@@ -329,13 +333,13 @@ def render_tendencias(df_super):
                         fig_anim2 = _aplicar_tema_plotly(fig_anim2)
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
-                            margin=dict(b=120),
+                            margin=dict(b=200),
                         )
                         fig_anim2.update_xaxes(title_standoff=30)
                         if fig_anim2.layout.updatemenus:
-                            fig_anim2.layout.updatemenus[0].y = -0.25
+                            fig_anim2.layout.updatemenus[0].y = -0.5
                         if fig_anim2.layout.sliders:
-                            fig_anim2.layout.sliders[0].y = -0.25
+                            fig_anim2.layout.sliders[0].y = -0.5
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
                         st.info("No hay datos históricos por género.")
