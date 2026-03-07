@@ -267,7 +267,7 @@ def render_tendencias(df_super):
                         fig_anim1 = _aplicar_tema_plotly(fig_anim1)
                         fig_anim1.update_layout(
                             xaxis_range=[0, max_jugadores * 1.1],
-                            margin=dict(b=120),
+                            margin=dict(b=180),
                         )
                         st.plotly_chart(fig_anim1, use_container_width=True)
                     else:
@@ -322,7 +322,7 @@ def render_tendencias(df_super):
                         fig_anim2 = _aplicar_tema_plotly(fig_anim2)
                         fig_anim2.update_layout(
                             yaxis_range=[0, max_jugadores_categoria * 1.1],
-                            margin=dict(b=120),
+                            margin=dict(b=180),
                         )
                         st.plotly_chart(fig_anim2, use_container_width=True)
                     else:
@@ -362,21 +362,18 @@ def render_tendencias(df_super):
                 st.write("**Última Actualización:** Desconocida")
 
             with col_graf:
-                df_precio_bar = pd.DataFrame({
-                    'Concepto': ['Precio Original', 'Precio Actual'],
-                    'Precio (Euros)': [precio_original, precio_actual],
-                })
-                fig_bar_precio = px.bar(
-                    df_precio_bar,
-                    x='Concepto',
-                    y='Precio (Euros)',
-                    color='Concepto',
-                    color_discrete_sequence=[RED_BASE, '#FF8080'],
-                    labels={'Concepto': 'Tipo De Precio (Categoría)', 'Precio (Euros)': 'Precio (Euros)'},
-                )
-                fig_bar_precio = _aplicar_tema_plotly(fig_bar_precio)
-                fig_bar_precio.update_layout(showlegend=False)
-                st.plotly_chart(fig_bar_precio, use_container_width=True)
+                try:
+                    st.plotly_chart(
+                        generar_grafico_precio_real(
+                            precio_original, precio_actual, juego_analisis,
+                            datos_juego.get('fecha_salida', ''),
+                            datos_historicos
+                        ),
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    import traceback
+                    st.error(f"Error generando gráfico: {traceback.format_exc()}")
 
             # --- BLOQUE INFERIOR: DLCs ---
             st.markdown("#### 🧩 Ecosistema de Expansiones (DLCs)")
