@@ -239,7 +239,11 @@ def render_jugador(df_super=None):
                             path=['categoria_anillo', 'name'],
                             values='horas',
                             title='☀️ Distribución Del Tiempo De Vida',
-                            color_discrete_sequence=[RED_BASE],
+                            color='categoria_anillo',
+                            color_discrete_map={
+                                'Top 5 Favoritos': RED_BASE,
+                                'Resto Del Catálogo': GRIS_OSCURO,
+                            },
                             labels={
                                 'horas': 'Tiempo Invertido (Horas)',
                                 'name': 'Videojuego',
