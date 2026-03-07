@@ -6,6 +6,16 @@ import plotly.express as px
 RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
 PALETA_ROJA = [RED_BASE, '#FF6666', '#FF8080', '#FF9999', '#FFB3B3', '#E74C3C', '#C0392B', '#FF6B6B', '#FF8B8B', '#FF5555']
 
+# Paleta para Top 10 (juegos o categorías): 10 colores distintos y vivos, legibles en tema oscuro
+PALETA_TOP10 = list(px.colors.qualitative.Bold)  # 10 colores: azul, naranja, verde, rojo, violeta, marrón, rosa, gris, oliva, cyan
+if len(PALETA_TOP10) < 10:
+    PALETA_TOP10 = [
+        '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+        '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+    ]
+DURACION_FRAME_MS = 480  # Más lento: ~0,5 s por frame
+DURACION_TRANSICION_MS = 120  # Transición suave entre frames
+
 
 def _ruta_historial():
     """Ruta al CSV de historial (historico_steam_streamlit)."""
@@ -258,7 +268,8 @@ def render_tendencias(df_super):
                     df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
                     frames_order = df_anim_top10['Hora_Frame'].unique().tolist()
                     max_jugadores = df_anim_top10['jugadores_historicos'].max()
-                    colores = dict(zip(df_anim_top10['nombre'].unique(), px.colors.qualitative.Vivid[: df_anim_top10['nombre'].nunique()]))
+                    nombres_unicos = df_anim_top10['nombre'].unique().tolist()
+                    colores = {n: PALETA_TOP10[i % len(PALETA_TOP10)] for i, n in enumerate(nombres_unicos)}
 
                     frames_list = []
                     for hf in frames_order:
@@ -298,7 +309,11 @@ def render_tendencias(df_super):
                                     x=0.5,
                                     xanchor='center',
                                     buttons=[
-                                        dict(label='▶ Play', method='animate', args=[None, dict(frame=dict(duration=300, redraw=True), fromcurrent=True)]),
+                                        dict(label='▶ Play', method='animate', args=[None, dict(
+                                            frame=dict(duration=DURACION_FRAME_MS, redraw=True),
+                                            transition=dict(duration=DURACION_TRANSICION_MS),
+                                            fromcurrent=True,
+                                        )]),
                                         dict(label='⏸ Pausa', method='animate', args=[[None], dict(mode='immediate')]),
                                     ],
                                 )
@@ -369,7 +384,8 @@ def render_tendencias(df_super):
                         df_anim_gen['Hora_Frame'] = pd.to_datetime(df_anim_gen['Fecha']).dt.strftime('%d/%m %H:%M')
                         frames_order_gen = df_anim_gen['Hora_Frame'].unique().tolist()
                         max_jugadores_categoria = df_anim_gen['jugadores_historicos'].max()
-                        colores_gen = dict(zip(df_anim_gen['genero'].unique(), px.colors.qualitative.Vivid[: df_anim_gen['genero'].nunique()]))
+                        generos_unicos = df_anim_gen['genero'].unique().tolist()
+                        colores_gen = {g: PALETA_TOP10[i % len(PALETA_TOP10)] for i, g in enumerate(generos_unicos)}
                         frames_list_gen = []
                         for hf in frames_order_gen:
                             sub = df_anim_gen[df_anim_gen['Hora_Frame'] == hf].sort_values('jugadores_historicos', ascending=False)
@@ -408,7 +424,11 @@ def render_tendencias(df_super):
                                         x=0.5,
                                         xanchor='center',
                                         buttons=[
-                                            dict(label='▶ Play', method='animate', args=[None, dict(frame=dict(duration=300, redraw=True), fromcurrent=True)]),
+                                            dict(label='▶ Play', method='animate', args=[None, dict(
+                                                frame=dict(duration=DURACION_FRAME_MS, redraw=True),
+                                                transition=dict(duration=DURACION_TRANSICION_MS),
+                                                fromcurrent=True,
+                                            )]),
                                             dict(label='⏸ Pausa', method='animate', args=[[None], dict(mode='immediate')]),
                                         ],
                                     )

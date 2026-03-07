@@ -501,7 +501,7 @@ def render_jugador(df_super=None):
                             title='🔮 Mapa De Rareza Y Mérito De Logros',
                             labels={'Fecha': 'Fecha de obtención', 'Rareza': 'Rareza (%)'},
                         )
-                        fig_bubble.update_traces(text=None, textposition='none')
+                        fig_bubble.update_traces(textposition='none')
                         fig_bubble.update_layout(
                             xaxis_title='Fecha de obtención',
                             yaxis_title='Rareza (%)',
