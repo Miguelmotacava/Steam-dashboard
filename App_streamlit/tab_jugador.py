@@ -1,38 +1,50 @@
 import streamlit as st
 import plotly.express as px
-from data_api import load_player_profile
+from data_api import load_player_profile, obtener_steam_id_real
 
 RED_BASE = '#FF4B4B'
 
 def render_jugador():
     st.header("👤 Análisis de ADN de Jugador")
-    st.write("Introduce un SteamID64 público (ej: `76561197960435530`).")
+    st.write("Pega tu SteamID64 o la **URL completa** de tu perfil público.")
     
     with st.form("jugador_form"):
-        steam_id_input = st.text_input("🔍 SteamID64:")
-        buscar_btn = st.form_submit_button("Analizar Perfil")
+        col_j_input, col_j_btn = st.columns([4, 1])
+        with col_j_input: input_perfil = st.text_input("🔍 SteamID o URL (ej: https://steamcommunity.com/profiles/...):")
+        with col_j_btn: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit_jugador = st.form_submit_button("Analizar Perfil")
         
-    if buscar_btn and len(steam_id_input) == 17:
-        with st.spinner("⏳ Analizando ADN de la biblioteca..."):
-            perfil, df_juegos, df_generos_jugador = load_player_profile(steam_id_input)
+    if submit_jugador and input_perfil:
+        steamid_real = obtener_steam_id_real(input_perfil)
+        if not steamid_real:
+            st.error("Formato no válido. Asegúrate de introducir una URL válida o el ID de 17 dígitos.")
+            return
+
+        with st.spinner("⏳ Conectando con Steam y extrayendo biblioteca..."):
+            perfil, df_juegos, df_generos_jugador = load_player_profile(steamid_real)
         
         if perfil:
             col_p1, col_p2 = st.columns([1, 4])
             with col_p1: st.image(perfil.get('avatarfull'), width=150)
             with col_p2:
                 st.subheader(perfil.get('personaname', 'Desconocido'))
-                st.write(f"🎮 **Juegos:** {len(df_juegos)}")
-                st.write(f"⏱️ **Horas Totales:** {int(df_juegos['playtime_forever'].sum()/60):,}")
+                
+                if df_juegos.empty:
+                    st.warning("⚠️ **ATENCIÓN:** Tu perfil es público, pero tus 'Detalles de los Juegos' están configurados como Privados en Steam. Ve a tu perfil de Steam > Modificar Perfil > Configuración de Privacidad > Pon 'Detalles de los juegos' en Público para ver tus gráficas.")
+                else:
+                    st.write(f"🎮 **Juegos Extraídos:** {len(df_juegos)}")
+                    st.write(f"⏱️ **Horas Totales:** {int(df_juegos['playtime_forever'].sum()/60):,}")
 
-            if not df_juegos.empty and not df_generos_jugador.empty:
-                col_j1, col_j2 = st.columns(2)
-                with col_j1:
-                    df_juegos['horas'] = df_juegos['playtime_forever'] / 60
-                    fig_p1 = px.bar(df_juegos.nlargest(10, 'horas').sort_values('horas'), x='horas', y='name', orientation='h', title='🏆 Más Jugados', color_discrete_sequence=[RED_BASE])
-                    st.plotly_chart(fig_p1, use_container_width=True)
-                with col_j2:
-                    radar_data = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
-                    fig_p2 = px.line_polar(radar_data, r=radar_data['minutos']/60, theta='genero', line_close=True, title='🕸️ ADN por Categorías', color_discrete_sequence=[RED_BASE])
-                    fig_p2.update_traces(fill='toself', fillcolor='rgba(255, 75, 75, 0.4)')
-                    st.plotly_chart(fig_p2, use_container_width=True)
-        else: st.error("❌ Perfil no encontrado o privado.")
+                    if not df_generos_jugador.empty:
+                        col_j1, col_j2 = st.columns(2)
+                        with col_j1:
+                            df_juegos['horas'] = df_juegos['playtime_forever'] / 60
+                            fig_p1 = px.bar(df_juegos.nlargest(10, 'horas').sort_values('horas'), x='horas', y='name', orientation='h', title='🏆 Más Jugados', color_discrete_sequence=[RED_BASE])
+                            st.plotly_chart(fig_p1, use_container_width=True)
+                        with col_j2:
+                            radar_data = df_generos_jugador.groupby('genero')['minutos'].sum().reset_index()
+                            fig_p2 = px.line_polar(radar_data, r=radar_data['minutos']/60, theta='genero', line_close=True, title='🕸️ ADN por Categorías', color_discrete_sequence=[RED_BASE])
+                            fig_p2.update_traces(fill='toself', fillcolor='rgba(255, 75, 75, 0.4)')
+                            st.plotly_chart(fig_p2, use_container_width=True)
+        else: st.error("❌ Perfil no encontrado o no existe.")

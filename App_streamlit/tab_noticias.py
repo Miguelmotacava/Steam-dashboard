@@ -6,7 +6,7 @@ from data_api import load_news_data
 RED_BASE = '#FF4B4B'
 
 def render_noticias(df_super):
-    st.header("📰 Radar de Noticias Oficiales")
+    st.header("📰 Radar de Noticias y Actualizaciones")
     
     col_n1, col_n2, col_n3 = st.columns([2, 1, 1])
     with col_n1: juego_elegido = st.selectbox("🕹️ Selecciona juego:", df_super['nombre'].unique())
@@ -47,3 +47,8 @@ def render_noticias(df_super):
                 ax_m2.tick_params(colors='gray', rotation=30, labelsize=8)
                 fig_m2.tight_layout()
                 st.pyplot(fig_m2, transparent=True)
+                
+            st.subheader("Últimos Titulares")
+            for _, row in df_news.head(5).iterrows():
+                st.markdown(f"🗓️ **{row['fecha_dt'].strftime('%d/%m/%Y')}** - [{row['title']}]({row['url']})")
+        else: st.info("📭 No hay noticias con los filtros aplicados.")

@@ -5,6 +5,13 @@ import plotly.express as px
 RED_BASE, RED_SCALE = '#FF4B4B', 'Reds'
 RED_DONUT = {'Windows': '#FF4B4B', 'MacOS': '#FF8080', 'Linux': '#FFB3B3'}
 
+def generar_grafico_precio(precio_ini, precio_fin, nombre):
+    fechas = pd.date_range(end=pd.Timestamp.today(), periods=6, freq='ME')
+    precios = [precio_ini, precio_ini, precio_ini, precio_fin, precio_fin, precio_fin]
+    fig = px.line(pd.DataFrame({'Fecha': fechas, 'Precio': precios}), x='Fecha', y='Precio', title=f'📈 Evolución del Precio', markers=True, labels={'Precio': 'Euros (€)'}, color_discrete_sequence=[RED_BASE])
+    fig.update_layout(yaxis_range=[0, max(precio_ini, precio_fin)+10])
+    return fig
+
 def render_tendencias(df_super):
     st.header("📈 Tendencias Actuales")
     
@@ -24,27 +31,40 @@ def render_tendencias(df_super):
 
     if not df_filtrado.empty:
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("👥 Jugadores (Totales)", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
-        kpi2.metric("🕹️ Juegos (Unidades)", len(df_filtrado))
-        kpi3.metric("💸 Precio Medio (Euros)", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
-        kpi4.metric("🎁 Juegos Gratuitos", int(df_filtrado['es_gratis'].sum()))
+        kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
+        kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
+        kpi3.metric("💸 Precio Medio", f"{df_filtrado[df_filtrado['precio_eur']>0]['precio_eur'].mean():.2f} €" if not df_filtrado[df_filtrado['precio_eur']>0].empty else "0.00 €")
+        kpi4.metric("🎁 Free-to-Play", int(df_filtrado['es_gratis'].sum()))
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            fig1 = px.bar(df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'), x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Top 10 Juegos', color_discrete_sequence=[RED_BASE])
+            fig1 = px.bar(df_filtrado.nlargest(10, 'jugadores_actuales').sort_values('jugadores_actuales'), x='jugadores_actuales', y='nombre', orientation='h', title='🏆 Juegos más populares', color_discrete_sequence=[RED_BASE])
             st.plotly_chart(fig1, use_container_width=True)
         with col_g2:
             df_gen = df_filtrado.assign(genero=df_filtrado['generos'].str.split(', ')).explode('genero')
-            fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Jugadores por Género', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
+            fig2 = px.treemap(df_gen.groupby('genero')['jugadores_actuales'].sum().reset_index(), path=['genero'], values='jugadores_actuales', title='🎭 Distribución por Géneros', color='jugadores_actuales', color_continuous_scale=RED_SCALE)
             st.plotly_chart(fig2, use_container_width=True)
 
         col_g3, col_g4 = st.columns(2)
         with col_g3:
             df_os = pd.DataFrame([('Windows', df_filtrado['windows'].sum()), ('MacOS', df_filtrado['mac'].sum()), ('Linux', df_filtrado['linux'].sum())], columns=['SO', 'Compatibles'])
-            fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de SO', color='SO', color_discrete_map=RED_DONUT)
+            fig3 = px.pie(df_os, names='SO', values='Compatibles', hole=0.5, title='🖥️ Compatibilidad de Sistemas', color='SO', color_discrete_map=RED_DONUT)
             st.plotly_chart(fig3, use_container_width=True)
         with col_g4:
             df_scat = df_filtrado[df_filtrado['metacritic_nota'].notna()]
             if not df_scat.empty:
-                fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='💎 Relación Precio y Crítica', color='nombre')
+                fig4 = px.scatter(df_scat, x='precio_eur', y='metacritic_nota', size='jugadores_actuales', hover_name='nombre', title='💎 Precio vs Calidad (Metacritic)', color='nombre')
                 st.plotly_chart(fig4, use_container_width=True)
+
+        st.markdown("### 🛒 Análisis de Modelo de Negocio")
+        juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
+        datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
+        
+        col_d1, col_d2 = st.columns([1, 2])
+        with col_d1:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.metric("🧩 Expansiones y Cosméticos", int(datos_juego['dlc_count']))
+            st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
+            st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
+        with col_d2:
+            st.plotly_chart(generar_grafico_precio(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis), use_container_width=True)
