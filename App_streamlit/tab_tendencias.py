@@ -332,6 +332,10 @@ def render_tendencias(df_super):
                             hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
                         )
                         fig_dlc = _aplicar_tema_plotly(fig_dlc)
+                        max_precio = df_dlc_con_fecha['precio_eur'].max()
+                        fig_dlc.update_layout(
+                            yaxis=dict(rangemode='tozero', range=[0, max(max_precio * 1.1, 1)]),
+                        )
                         st.plotly_chart(fig_dlc, use_container_width=True)
                     st.markdown("**Listado:**")
                     for d in dlcs:
