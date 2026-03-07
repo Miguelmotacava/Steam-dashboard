@@ -332,48 +332,88 @@ def render_tendencias(df_super):
         juego_analisis = st.selectbox("Selecciona un título para analizar precios y DLCs:", df_filtrado['nombre'].unique())
         try:
             datos_juego = df_filtrado[df_filtrado['nombre'] == juego_analisis].iloc[0]
-            
+
             with st.spinner("🔍 Consultando historial de precios reales..."):
                 try:
                     datos_historicos = fetch_history_price(datos_juego['appid'], juego_analisis)
-                except Exception as e:
-                    import traceback
-                    st.error(f"Error consultando historial: {e}")
+                except Exception:
                     datos_historicos = None
 
-            col_d1, col_d2 = st.columns([1, 2])
-            with col_d1:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.metric("🧩 Expansiones y Cosméticos", int(datos_juego['dlc_count']))
-                st.write(f"**Precio de Lanzamiento:** {datos_juego['precio_inicial']:.2f} €")
-                st.write(f"**Precio Actual (Rebajas):** {datos_juego['precio_eur']:.2f} €")
-                if datos_historicos:
-                    st.write(f"**💰 Mínimo Histórico:** {datos_historicos['precio_min_historico']:.2f} €")
-            with col_d2:
-                try:
-                    st.plotly_chart(generar_grafico_precio_real(datos_juego['precio_inicial'], datos_juego['precio_eur'], juego_analisis, datos_juego['fecha_salida'], datos_historicos), use_container_width=True)
-                except Exception as e:
-                    import traceback
-                    st.error(f"Error generando gráfico: {traceback.format_exc()}")
+            # --- BLOQUE SUPERIOR: Juego Base ---
+            col_info, col_graf = st.columns([1, 2])
+            with col_info:
+                precio_actual = float(datos_juego.get('precio_eur', 0) or 0)
+                precio_original = float(datos_juego.get('precio_inicial', 0) or 0)
+                precio_min = None
+                if datos_historicos and datos_historicos.get('precio_min_historico') is not None:
+                    precio_min = float(datos_historicos['precio_min_historico'])
+                precio_min_str = f"{precio_min:.2f} €" if precio_min is not None else "N/D"
 
-            # Listado y gráfico de DLCs/expansiones/cosméticos
-            if datos_juego['dlc_count'] > 0:
-                st.markdown("#### 🧩 Expansiones y Cosméticos por Fecha y Precio")
+                try:
+                    fecha_lanz = pd.to_datetime(datos_juego.get('fecha_salida', ''), errors='coerce')
+                    fecha_lanz_str = fecha_lanz.strftime('%d/%m/%Y') if pd.notna(fecha_lanz) else "Desconocida"
+                except Exception:
+                    fecha_lanz_str = "Desconocida"
+
+                st.write(f"**Precio Actual:** {precio_actual:.2f} €")
+                st.write(f"**Precio Mínimo:** {precio_min_str}")
+                st.write(f"**Fecha de Lanzamiento:** {fecha_lanz_str}")
+                st.write("**Última Actualización:** Desconocida")
+
+            with col_graf:
+                df_precio_bar = pd.DataFrame({
+                    'Concepto': ['Precio Original', 'Precio Actual'],
+                    'Precio (Euros)': [precio_original, precio_actual],
+                })
+                fig_bar_precio = px.bar(
+                    df_precio_bar,
+                    x='Concepto',
+                    y='Precio (Euros)',
+                    color='Concepto',
+                    color_discrete_sequence=[RED_BASE, '#FF8080'],
+                    labels={'Concepto': 'Tipo De Precio (Categoría)', 'Precio (Euros)': 'Precio (Euros)'},
+                )
+                fig_bar_precio = _aplicar_tema_plotly(fig_bar_precio)
+                fig_bar_precio.update_layout(showlegend=False)
+                st.plotly_chart(fig_bar_precio, use_container_width=True)
+
+            # --- BLOQUE INFERIOR: DLCs ---
+            st.markdown("---")
+            st.markdown("### 🧩 Ecosistema de Expansiones (DLCs)")
+
+            if datos_juego['dlc_count'] <= 0:
+                st.info("Este juego no tiene DLCs o contenido adicional registrado.")
+            else:
                 with st.spinner("Cargando listado de DLCs..."):
                     dlcs = fetch_dlc_list(datos_juego['appid'])
-                if dlcs:
+
+                if not dlcs:
+                    st.info("No se pudieron cargar los detalles de los DLCs.")
+                else:
                     df_dlc = pd.DataFrame(dlcs)
                     df_dlc['fecha_dt'] = pd.to_datetime(df_dlc['fecha_salida'], errors='coerce')
                     df_dlc['fecha_dt'] = df_dlc['fecha_dt'].fillna(pd.Timestamp.today())
                     df_dlc_con_fecha = df_dlc.sort_values('fecha_dt')
-                    if not df_dlc_con_fecha.empty:
+
+                    col_dlc_info, col_dlc_graf = st.columns([1, 2])
+                    with col_dlc_info:
+                        total_dlcs = len(df_dlc)
+                        precio_medio = df_dlc['precio_eur'].fillna(0).mean()
+                        fecha_primera = df_dlc_con_fecha['fecha_dt'].min()
+                        fecha_ultima = df_dlc_con_fecha['fecha_dt'].max()
+                        st.write(f"**Total de Expansiones:** {total_dlcs}")
+                        st.write(f"**Precio Medio de DLCs:** {precio_medio:.2f} €")
+                        st.write(f"**Fecha del Primero:** {fecha_primera.strftime('%d/%m/%Y')}")
+                        st.write(f"**Fecha del Último:** {fecha_ultima.strftime('%d/%m/%Y')}")
+
+                    with col_dlc_graf:
                         fig_dlc = px.scatter(
                             df_dlc_con_fecha,
                             x='fecha_dt',
                             y='precio_eur',
                             hover_name='nombre',
                             color='tipo',
-                            title='📅 Expansiones y Cosméticos: Fecha de Salida vs Precio',
+                            title='📅 Distribución De Lanzamientos (DLCs)',
                             color_discrete_map={
                                 'DLC': RED_BASE,
                                 'Expansión': '#FF8080',
@@ -381,15 +421,15 @@ def render_tendencias(df_super):
                                 'Banda Sonora': '#E74C3C',
                             },
                             labels={
-                                'fecha_dt': 'Fecha De Salida (Tiempo)',
+                                'fecha_dt': 'Fecha De Lanzamiento (Tiempo)',
                                 'precio_eur': 'Precio (Euros)',
-                                'nombre': 'Nombre',
-                                'tipo': 'Tipo',
+                                'nombre': 'Contenido',
+                                'tipo': 'Tipo (Categoría)',
                             },
                         )
                         fig_dlc.update_traces(
                             marker=dict(size=12),
-                            hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<br>Tipo: %{fullData.name}<extra></extra>',
+                            hovertemplate='<b>%{hovertext}</b><br>Fecha: %{x|%d/%m/%Y}<br>Precio: %{y:.2f} €<extra></extra>',
                         )
                         fig_dlc = _aplicar_tema_plotly(fig_dlc)
                         max_precio = df_dlc_con_fecha['precio_eur'].max()
@@ -397,12 +437,18 @@ def render_tendencias(df_super):
                             yaxis=dict(rangemode='tozero', range=[0, max(max_precio * 1.1, 1)]),
                         )
                         st.plotly_chart(fig_dlc, use_container_width=True)
-                    st.markdown("**Listado:**")
-                    for d in dlcs:
-                        precio_str = "Gratis" if not d.get('precio_eur') or d['precio_eur'] == 0 else f"{d['precio_eur']:.2f} €"
-                        st.markdown(f"- **{d['nombre']}** — {d.get('fecha_salida', 'N/D')} — {precio_str}")
-                else:
-                    st.caption("No se pudieron cargar los detalles de los DLCs.")
+
+                    with st.expander("Ver listado completo de contenido adicional"):
+                        df_listado = df_dlc_con_fecha.copy()
+                        df_listado['Fecha'] = df_listado['fecha_dt'].dt.strftime('%d/%m/%Y')
+                        df_listado['Precio'] = df_listado['precio_eur'].apply(
+                            lambda x: "Gratis" if pd.isna(x) or x == 0 else f"{x:.2f} €"
+                        )
+                        st.dataframe(
+                            df_listado[['nombre', 'Fecha', 'Precio', 'tipo']].rename(columns={'nombre': 'Contenido'}),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
         except Exception as e:
             import traceback
             st.error(f"Error procesando análisis de negocio: {traceback.format_exc()}")
