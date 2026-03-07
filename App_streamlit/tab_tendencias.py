@@ -339,45 +339,48 @@ def render_tendencias(df_super):
                 except Exception:
                     datos_historicos = None
 
-            # --- BLOQUE SUPERIOR: Juego Base ---
-            st.markdown("#### 🎮 Ficha del Juego Base")
+            # --- TAREA 1: Ficha del Juego Base (Widgets y Gráfica) ---
             col_info, col_graf = st.columns([1, 2])
             with col_info:
+                st.markdown("#### 🎮 Ficha del Juego Base")
                 precio_actual = float(datos_juego.get('precio_eur', 0) or 0)
                 precio_original = float(datos_juego.get('precio_inicial', 0) or 0)
                 precio_min = None
                 if datos_historicos and datos_historicos.get('precio_min_historico') is not None:
                     precio_min = float(datos_historicos['precio_min_historico'])
-                precio_min_str = f"{precio_min:.2f} €" if precio_min is not None else "N/D"
-
                 try:
                     fecha_lanz = pd.to_datetime(datos_juego.get('fecha_salida', ''), errors='coerce')
                     fecha_lanz_str = fecha_lanz.strftime('%d/%m/%Y') if pd.notna(fecha_lanz) else "Desconocida"
                 except Exception:
                     fecha_lanz_str = "Desconocida"
 
-                st.write(f"**Precio Actual:** {precio_actual:.2f} €")
-                st.write(f"**Precio Mínimo:** {precio_min_str}")
-                st.write(f"**Fecha de Lanzamiento:** {fecha_lanz_str}")
-                st.write("**Última Actualización:** Desconocida")
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.metric("Precio Actual", f"{precio_actual:.2f} €")
+                    st.metric("Lanzamiento", fecha_lanz_str)
+                with c2:
+                    st.metric("Precio Mínimo", f"{precio_min:.2f} €" if precio_min is not None else "N/D")
+                    st.metric("Última Act.", "Desconocida")
 
             with col_graf:
-                try:
-                    st.plotly_chart(
-                        generar_grafico_precio_real(
-                            precio_original, precio_actual, juego_analisis,
-                            datos_juego.get('fecha_salida', ''),
-                            datos_historicos
-                        ),
-                        use_container_width=True,
-                    )
-                except Exception as e:
-                    import traceback
-                    st.error(f"Error generando gráfico: {traceback.format_exc()}")
+                df_precio_bar = pd.DataFrame({
+                    'Concepto': ['Precio Original', 'Precio Actual'],
+                    'Precio (Euros)': [precio_original, precio_actual],
+                })
+                fig_bar_precio = px.bar(
+                    df_precio_bar,
+                    x='Concepto',
+                    y='Precio (Euros)',
+                    color='Concepto',
+                    color_discrete_sequence=[RED_BASE, '#FF8080'],
+                    labels={'Concepto': 'Tipo De Precio (Categoría)', 'Precio (Euros)': 'Precio Actual (Euros)'},
+                )
+                fig_bar_precio = _aplicar_tema_plotly(fig_bar_precio)
+                fig_bar_precio.update_layout(showlegend=False)
+                st.plotly_chart(fig_bar_precio, use_container_width=True)
 
-            # --- BLOQUE INFERIOR: DLCs ---
-            st.markdown("#### 🧩 Ecosistema de Expansiones (DLCs)")
-
+            # --- TAREA 2: Ecosistema de DLCs ---
+            st.markdown("---")
             if datos_juego['dlc_count'] <= 0:
                 st.info("Este juego no tiene DLCs o contenido adicional registrado.")
             else:
@@ -390,18 +393,39 @@ def render_tendencias(df_super):
                     df_dlc = pd.DataFrame(dlcs)
                     df_dlc['fecha_dt'] = pd.to_datetime(df_dlc['fecha_salida'], errors='coerce')
                     df_dlc['fecha_dt'] = df_dlc['fecha_dt'].fillna(pd.Timestamp.today())
+                    df_dlc['precio_eur'] = df_dlc['precio_eur'].fillna(0)
+
+                    def _categoria_dlc(row):
+                        n = (row.get('nombre', '') or '').lower()
+                        p = float(row.get('precio_eur', 0) or 0)
+                        if 'soundtrack' in n or 'ost' in n:
+                            return "🎵 Banda Sonora"
+                        if 'season pass' in n or 'pase' in n:
+                            return "🎟️ Pase de Temporada"
+                        if p >= 15:
+                            return "🗺️ Expansión Mayor"
+                        if p < 5 or 'pack' in n or 'skin' in n:
+                            return "👗 Cosmético / Menor"
+                        return "🧩 DLC Estándar"
+
+                    df_dlc['Categoria_DLC'] = df_dlc.apply(_categoria_dlc, axis=1)
                     df_dlc_con_fecha = df_dlc.sort_values('fecha_dt')
 
                     col_dlc_info, col_dlc_graf = st.columns([1, 2])
                     with col_dlc_info:
+                        st.markdown("#### 🧩 Ecosistema de Expansiones (DLCs)")
                         total_dlcs = len(df_dlc)
-                        precio_medio = df_dlc['precio_eur'].fillna(0).mean()
+                        precio_medio = df_dlc['precio_eur'].mean()
                         fecha_primera = df_dlc_con_fecha['fecha_dt'].min()
                         fecha_ultima = df_dlc_con_fecha['fecha_dt'].max()
-                        st.write(f"**Total de Expansiones:** {total_dlcs}")
-                        st.write(f"**Precio Medio de DLCs:** {precio_medio:.2f} €")
-                        st.write(f"**Fecha del Primero:** {fecha_primera.strftime('%d/%m/%Y')}")
-                        st.write(f"**Fecha del Último:** {fecha_ultima.strftime('%d/%m/%Y')}")
+
+                        dc1, dc2 = st.columns(2)
+                        with dc1:
+                            st.metric("Total Expansiones", total_dlcs)
+                            st.metric("Primer DLC", fecha_primera.strftime('%d/%m/%Y'))
+                        with dc2:
+                            st.metric("Precio Medio", f"{precio_medio:.2f} €")
+                            st.metric("Último DLC", fecha_ultima.strftime('%d/%m/%Y'))
 
                     with col_dlc_graf:
                         fig_dlc = px.scatter(
@@ -409,19 +433,15 @@ def render_tendencias(df_super):
                             x='fecha_dt',
                             y='precio_eur',
                             hover_name='nombre',
-                            color='tipo',
+                            color='Categoria_DLC',
+                            symbol='Categoria_DLC',
                             title='📅 Distribución De Lanzamientos (DLCs)',
-                            color_discrete_map={
-                                'DLC': RED_BASE,
-                                'Expansión': '#FF8080',
-                                'Cosmético': '#FFB3B3',
-                                'Banda Sonora': '#E74C3C',
-                            },
+                            size_max=12,
                             labels={
                                 'fecha_dt': 'Fecha De Lanzamiento (Tiempo)',
-                                'precio_eur': 'Precio (Euros)',
+                                'precio_eur': 'Precio Actual (Euros)',
                                 'nombre': 'Contenido',
-                                'tipo': 'Tipo (Categoría)',
+                                'Categoria_DLC': 'Categoría (Tipo)',
                             },
                         )
                         fig_dlc.update_traces(
@@ -435,6 +455,7 @@ def render_tendencias(df_super):
                         )
                         st.plotly_chart(fig_dlc, use_container_width=True)
 
+                    # --- TAREA 3: Listado ---
                     with st.expander("Ver listado completo de contenido adicional"):
                         df_listado = df_dlc_con_fecha.copy()
                         df_listado['Fecha'] = df_listado['fecha_dt'].dt.strftime('%d/%m/%Y')
@@ -442,7 +463,9 @@ def render_tendencias(df_super):
                             lambda x: "Gratis" if pd.isna(x) or x == 0 else f"{x:.2f} €"
                         )
                         st.dataframe(
-                            df_listado[['nombre', 'Fecha', 'Precio', 'tipo']].rename(columns={'nombre': 'Contenido'}),
+                            df_listado[['nombre', 'Fecha', 'Precio', 'Categoria_DLC']].rename(
+                                columns={'nombre': 'Contenido', 'Categoria_DLC': 'Categoría'}
+                            ),
                             use_container_width=True,
                             hide_index=True,
                         )
