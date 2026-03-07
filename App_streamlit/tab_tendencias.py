@@ -226,6 +226,7 @@ def render_tendencias(df_super):
                 with col_h1:
                     top_10_appids = df_filtrado.nlargest(10, 'jugadores_actuales')['appid'].tolist()
                     df_line_top10 = df_hist_merge[df_hist_merge['appid'].isin(top_10_appids)]
+                    st.write("")
                     if not df_line_top10.empty:
                         fig_line = px.line(
                             df_line_top10,
@@ -247,6 +248,7 @@ def render_tendencias(df_super):
                         st.plotly_chart(fig_line, use_container_width=True)
 
                         # Animación 1: Carrera de Juegos
+                        st.write("")
                         df_anim_top10 = df_line_top10.sort_values('Fecha').copy()
                         df_anim_top10['Hora_Frame'] = pd.to_datetime(df_anim_top10['Fecha']).dt.strftime('%d/%m %H:%M')
                         max_jugadores = df_anim_top10['jugadores_historicos'].max()
