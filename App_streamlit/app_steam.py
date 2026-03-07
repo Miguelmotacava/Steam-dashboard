@@ -10,8 +10,6 @@ st.set_page_config(page_title="Steam Analytics Dashboard", layout="wide")
 st.markdown("""<style>.stProgress > div > div > div > div { background-color: #FF4B4B !important; }</style>""", unsafe_allow_html=True)
 
 st.title("🎮 Dashboard de Análisis de Steam")
-num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
-st.markdown("---")
 
 df_super = pd.DataFrame()
 try:
@@ -21,6 +19,9 @@ except Exception as e:
 
 # El buscador global ha sido eliminado para máxima velocidad
 tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])
+
+num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", min_value=10, max_value=100, value=100, step=10)
+st.markdown("---")
 
 if not df_super.empty:
     with tab1: render_tendencias(df_super)
