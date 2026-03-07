@@ -1,5 +1,6 @@
 # Ignorar variables de entorno y credenciales
 .env
+.streamlit/secrets.toml
 
 # Ignorar carpetas de entornos virtuales (si usas uno)
 .venv/

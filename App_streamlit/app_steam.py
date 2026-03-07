@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from data_api import fetch_global_steam_data
 
 from tab_tendencias import render_tendencias
@@ -12,11 +13,11 @@ st.title("🎮 Dashboard de Análisis de Steam")
 num_juegos = st.slider("🎯 Límite de juegos del Top actual a analizar:", 10, 100, 50, 10)
 st.markdown("---")
 
+df_super = pd.DataFrame()
 try:
     df_super = fetch_global_steam_data(num_juegos)
 except Exception as e:
     st.error(f"Error al analizar el mercado global: {e}")
-    df_super = pd.DataFrame()
 
 # El buscador global ha sido eliminado para máxima velocidad
 tab1, tab2, tab3 = st.tabs(["📈 Tendencias", "📰 Noticias", "👤 Perfil de Jugador"])
@@ -26,4 +27,6 @@ if not df_super.empty:
     with tab2: render_noticias(df_super)
     with tab3: render_jugador()
 else:
-    st.error("Error crítico: No se ha podido establecer conexión con la base de datos de Steam.")
+    st.warning("⚠️ No se pudo cargar el mercado global. **En Streamlit Cloud:** ve a *Manage app* → *Settings* → *Secrets* y añade: `STEAM_API_KEY = \"tu_clave\"`")
+    st.info("💡 Mientras tanto, puedes usar la pestaña **Perfil de Jugador** para analizar tu biblioteca de Steam.")
+    with tab3: render_jugador()
