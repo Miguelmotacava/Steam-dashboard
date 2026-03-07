@@ -63,6 +63,19 @@ Análisis de la biblioteca Steam a partir del SteamID64 o la URL del perfil púb
 | Recolección | GitHub Actions (cron cada 10 min) |
 | Deploy | Streamlit Cloud |
 
+## ⚠️ Advertencia: Recolector y GitHub Actions
+
+La **evolución histórica de jugadores** (gráficos de tendencias en el tiempo y animaciones de carrera) depende del archivo `historico_steam_streamlit/historial_top100.csv`, que se actualiza de forma automática mediante una **GitHub Action** (`.github/workflows/recolector.yml`). El workflow está programado para ejecutarse cada 10 minutos y hace commit del CSV al repositorio.
+
+**Importante:** a partir de cierto tiempo, es posible que el recolector **deje de actualizarse**:
+
+- **Inactividad del repositorio:** Si el repositorio no tiene commits (u otra actividad) durante **60 días**, GitHub **desactiva automáticamente** la ejecución programada (*scheduled workflows*). Los gráficos de evolución histórica seguirán mostrando los últimos datos disponibles, pero no habrá nuevos puntos hasta que se reactive el workflow (por ejemplo, con un commit manual o una ejecución manual desde *Actions*).
+- **Retrasos u omisiones:** En horas punta, GitHub puede retrasar o omitir ejecuciones del cron. El workflow evita el minuto :00 usando los minutos 7, 17, 27, 37, 47 y 57.
+
+Para comprobar o reactivar el recolector: en GitHub, pestaña **Actions** → workflow *Recolector Steam Top 100* → *Run workflow* (ejecución manual).
+
+---
+
 ## APIs Utilizadas
 
 | API | Uso | Autenticación |
