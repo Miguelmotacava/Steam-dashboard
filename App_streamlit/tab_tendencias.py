@@ -135,7 +135,6 @@ def render_tendencias(df_super):
         except Exception:
             df_historial = None
     
-    st.markdown("---")
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1: juegos_sel = st.multiselect("🎮 Filtrar por Videojuego", options=df_super['nombre'].unique())
     with col_f2: plat_sel = st.selectbox("💻 Filtrar por Plataforma", ["Todas", "Windows", "MacOS", "Linux"])
@@ -152,6 +151,7 @@ def render_tendencias(df_super):
 
     if not df_filtrado.empty:
         # --- KPIs justo debajo de los filtros ---
+        st.markdown("---")
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         kpi1.metric("👥 Jugadores Concurrentes", f"{int(df_filtrado['jugadores_actuales'].sum()):,}".replace(',', '.'))
         kpi2.metric("🕹️ Títulos Mostrados", len(df_filtrado))
@@ -390,7 +390,6 @@ def render_tendencias(df_super):
                     st.error(f"Error generando gráfico: {traceback.format_exc()}")
 
             # --- TAREA 2: Ecosistema de DLCs ---
-            st.markdown("---")
             if datos_juego['dlc_count'] <= 0:
                 st.info("Este juego no tiene DLCs o contenido adicional registrado.")
             elif not dlcs:
